@@ -1,0 +1,10 @@
+# Module descriptor for deki-engine auto-discovery
+set(MODULE_DISPLAY_NAME "FSM")
+set(MODULE_PREFIX "DekiFsm")
+set(MODULE_UPPER "FSM")
+set(MODULE_TARGET "deki-fsm")
+set(MODULE_FILE_PREFIX "Fsm")
+set(MODULE_ENTRY FsmModule.cpp)
+set(MODULE_NEEDS_IMGUI OFF)
+set(MODULE_LINK_DEPS deki-editor deki-2d deki-tween)
+set(MODULE_EXPORT_ALL_SYMBOLS ON)
