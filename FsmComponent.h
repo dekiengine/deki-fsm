@@ -13,18 +13,16 @@
 
 // Runs a state-machine graph asset (PlayMaker-style) on the object it sits on.
 //
-// The graph mirrors a script's lifecycle with PARALLEL TRACKS: every WIRED
-// lifecycle root output (Start "start", Awake "done", Update "flow") begins
-// its own track — an independent state flow with its own active state — the
-// FSM equivalent of a DekiBehaviour doing separate things in Awake/Start/
-// Update. Within each track the active state's enabled actions run in stack
-// order every frame; when all of them have finished, that track's FINISHED
-// fires (matched only against that track's transitions). Custom events
-// (raised by actions or SendEvent()) broadcast to every track; each track's
-// active state decides via its `transitions` list. Awake nodes additionally
-// run a one-shot setup action pass at initialization, and Update nodes run
-// always-on action stacks every frame — both machine-level, independent of
-// any track.
+// The graph mirrors a script's lifecycle with PARALLEL TRACKS. The three
+// entry nodes (Awake/Start/Update) are permanent fixtures of every graph,
+// exactly like the hooks of a DekiBehaviour; each WIRED entry output begins
+// its own track — an independent state flow with its own active state — and
+// an unwired output is an unused hook. ALL actions live in states: within
+// each track the active state's enabled actions run in stack order every
+// frame; when all of them have finished, that track's FINISHED fires
+// (matched only against that track's transitions). Custom events (raised by
+// actions or SendEvent()) broadcast to every track; each track's active
+// state decides via its `transitions` list.
 //
 // Failure policy (no fallbacks): an unwired Start pin, a wire into a
 // non-State node, an action type with no registered runtime ops, an
@@ -95,8 +93,6 @@ private:
     };
 
     void ResetMachine();
-    void RunAwakeStacks(const NodeGraphData& g);
-    void BuildUpdateStacks(const NodeGraphData& g);
     void InitializeMachine(const NodeGraphData& g);
     void EnterState(const NodeGraphData& g, Track& track,
                     const NodeGraphData::NodeInstance* state);
@@ -112,19 +108,6 @@ private:
 
     std::vector<QueuedEvent> eventQueue_;
     std::unordered_map<const void*, std::shared_ptr<bool>> clickWatches_;
-
-    // Always-on Update stacks (FsmUpdateNode action lists): built once per
-    // graph, run every frame before any track's actions, never exited.
-    // Finished actions just stop (no FINISHED — no transitions).
-    struct UpdateActionSlot
-    {
-        const void* data = nullptr;         // shared action instance (graph-owned)
-        const FsmActionOps* ops = nullptr;
-        size_t stateOffset = 0;             // into updateBlob_
-        uint8_t finished = 0;
-    };
-    std::vector<UpdateActionSlot> updateActions_;
-    std::vector<uint8_t> updateBlob_;
 };
 
 #include "generated/FsmComponent.gen.h"

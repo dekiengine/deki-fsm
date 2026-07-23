@@ -28,17 +28,21 @@ public:
     const char* GetDisplayName() const override { return "State Machine"; }
     const char* GetExtension() const override   { return ".asset"; }
 
-    // A minimal valid graph: Start wired into one empty state.
+    // Every graph carries its three permanent lifecycle entries (the editor
+    // re-seeds missing ones on open); Start comes wired into one empty state
+    // so a fresh machine runs immediately.
     const char* GetDefaultContent() const override
     {
         return R"({
   "links": [
-    { "from": 1, "fromPin": 0, "to": 2, "toPin": 0 }
+    { "from": 2, "fromPin": 0, "to": 4, "toPin": 0 }
   ],
-  "nextNodeId": 3,
+  "nextNodeId": 5,
   "nodes": [
-    { "id": 1, "type": "FsmStart", "values": {}, "x": 60.0, "y": 120.0 },
-    { "id": 2, "type": "FsmState", "values": { "name": "Idle", "transitions": ["FINISHED"] }, "x": 300.0, "y": 120.0 }
+    { "id": 1, "type": "FsmAwake", "values": {}, "x": 60.0, "y": 40.0 },
+    { "id": 2, "type": "FsmStart", "values": {}, "x": 60.0, "y": 170.0 },
+    { "id": 3, "type": "FsmUpdate", "values": {}, "x": 60.0, "y": 300.0 },
+    { "id": 4, "type": "FsmState", "values": { "name": "Idle", "transitions": [] }, "x": 300.0, "y": 170.0 }
   ],
   "type": "FsmGraph"
 })";
@@ -54,5 +58,14 @@ REGISTER_EDITOR(FsmGraphAssetEditor)
 REGISTER_NODE_GRAPH_DOMAIN(g_FsmDomain,
                            "FsmGraph", "State Machine",
                            "Fsm", "FsmStart");
+
+// Re-registration hook for plugin-only hot reload: the editor wipes the domain
+// registry while this DLL stays loaded, so the static registrar above never
+// reruns. Registry Register() dedupes, so calling this repeatedly is safe.
+// Invoked from DekiFsm_RegisterGraphTypes (FsmModule.cpp).
+extern "C" void DekiFsm_RegisterEditorGraphDomain(void)
+{
+    NodeGraphDomainRegistry::Instance().Register(&g_FsmDomain);
+}
 
 #endif // DEKI_EDITOR

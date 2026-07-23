@@ -170,155 +170,37 @@ void FsmComponent::ResetMachine()
     failed_ = false;
     eventQueue_.clear();
     clickWatches_.clear();   // callbacks on buttons keep their (now orphan) flags alive
-    updateActions_.clear();
-    updateBlob_.clear();
-}
-
-void FsmComponent::RunAwakeStacks(const NodeGraphData& g)
-{
-    // Awake is instantaneous, like DekiBehaviour::Awake(): every enabled
-    // action of every FsmAwakeNode runs in ONE pass (enter -> one update ->
-    // exit, dt 0) right now, before the Update stacks arm and before any
-    // track enters its first state. An action that does not finish in that
-    // single pass is frame-based (Wait, Move To, Watch Button, everyFrame)
-    // and does not belong in Awake — that is a graph error, not a partial run.
-    FsmContext ctx{ GetOwner(), this, 0.0f };
-    std::vector<uint8_t> state;   // per-action scratch, discarded after the pass
-
-    for (const auto& node : g.Nodes())
-    {
-        if (node.typeId != kAwakeId)
-            continue;
-        for (const auto& child : node.children)
-        {
-            if (!child.enabled)
-                continue;
-            const FsmActionOps* ops = FsmActionRegistry::Instance().Find(child.typeId);
-            if (!ops)
-            {
-                FailFsm("Awake stack contains an action with no registered runtime ops");
-                return;
-            }
-
-            state.assign(ops->stateSize, 0);
-            if (ops->onEnter)
-                ops->onEnter(child.instance, state.data(), ctx);
-            if (failed_)
-                return;
-
-            bool finished = true;
-            if (ops->onUpdate)
-                finished = ops->onUpdate(child.instance, state.data(), ctx);
-            if (failed_)
-                return;
-            if (!finished)
-            {
-                FailFsm("Awake action did not finish immediately — frame-based "
-                        "actions (Wait, Move To, Watch Button, everyFrame) belong "
-                        "in a state or an Update stack, not Awake");
-                return;
-            }
-
-            if (ops->onExit)
-                ops->onExit(child.instance, state.data(), ctx);
-            if (failed_)
-                return;
-        }
-    }
-}
-
-void FsmComponent::BuildUpdateStacks(const NodeGraphData& g)
-{
-    // Collect every FsmUpdateNode's enabled actions into one persistent table.
-    // Built once per graph, never exited: this is the machine's Update()
-    // lifecycle, running alongside every track.
-    updateActions_.clear();
-    updateBlob_.clear();
-
-    size_t blobSize = 0;
-    for (const auto& node : g.Nodes())
-    {
-        if (node.typeId != kUpdateId)
-            continue;
-        for (const auto& child : node.children)
-        {
-            if (!child.enabled)
-                continue;
-            const FsmActionOps* ops = FsmActionRegistry::Instance().Find(child.typeId);
-            if (!ops)
-            {
-                FailFsm("Update stack contains an action with no registered runtime ops");
-                return;
-            }
-            UpdateActionSlot slot;
-            slot.data = child.instance;
-            slot.ops = ops;
-            slot.stateOffset = blobSize;
-            updateActions_.push_back(slot);
-            blobSize += ops->stateSize;
-        }
-    }
-    updateBlob_.assign(blobSize, 0);
-
-    FsmContext ctx{ GetOwner(), this, 0.0f };
-    for (auto& slot : updateActions_)
-    {
-        if (slot.ops->onEnter)
-            slot.ops->onEnter(slot.data, updateBlob_.data() + slot.stateOffset, ctx);
-        if (failed_)
-            return;
-    }
 }
 
 void FsmComponent::InitializeMachine(const NodeGraphData& g)
 {
-    // Script lifecycle order: Awake pass -> Update stacks arm -> every wired
-    // lifecycle root output begins its parallel track (in graph node order).
-    // Events queued by Awake actions are processed right after, so Awake can
-    // redirect any track on frame one.
+    // The lifecycle entries (Awake/Start/Update) are permanent fixtures of
+    // every graph; each WIRED output begins its own parallel track, entered
+    // in lifecycle order (Awake flows first, then Start, then Update). An
+    // unwired output is an unused hook — same as a lifecycle method you
+    // didn't override — never an error. A machine where NOTHING is wired,
+    // however, has nothing to run at all: that one is loud.
     initialized_ = true;
 
-    RunAwakeStacks(g);
-    if (failed_)
-        return;
-
-    BuildUpdateStacks(g);
-    if (failed_)
-        return;
-
-    for (const auto& node : g.Nodes())
+    const uint32_t kLifecycleOrder[] = { kAwakeId, kStartId, kUpdateId };
+    for (uint32_t entryTypeId : kLifecycleOrder)
     {
-        if (failed_)
-            return;
-
-        if (node.typeId == kStartId)
+        for (const auto& node : g.Nodes())
         {
-            // Start exists solely to point at a state; unwired = authoring error.
+            if (node.typeId != entryTypeId)
+                continue;
             const NodeGraphData::NodeInstance* first = g.Next(node.id, 0);
             if (!first)
-            {
-                FailFsm("Start node's output is not wired to a state");
-                return;
-            }
+                continue;   // unused hook
             tracks_.emplace_back();
             EnterState(g, tracks_.back(), first);
-        }
-        else if (node.typeId == kAwakeId || node.typeId == kUpdateId)
-        {
-            // Optional: these nodes carry their lifecycle stacks either way;
-            // a wired output additionally starts a parallel flow.
-            const NodeGraphData::NodeInstance* first = g.Next(node.id, 0);
-            if (first)
-            {
-                tracks_.emplace_back();
-                EnterState(g, tracks_.back(), first);
-            }
+            if (failed_)
+                return;
         }
     }
 
-    if (tracks_.empty() && updateActions_.empty())
-        FailFsm("graph has nothing to run: no wired Start/Awake/Update output "
-                "and no Update actions");
+    if (tracks_.empty())
+        FailFsm("graph has nothing to run: no lifecycle output (Awake/Start/Update) is wired");
 }
 
 void FsmComponent::EnterState(const NodeGraphData& g, Track& track,
@@ -456,24 +338,7 @@ void FsmComponent::RunActions()
     const float dt = DekiTime::GetDeltaTimeF() * 0.001f;
     FsmContext ctx{ GetOwner(), this, dt };
 
-    // Update stacks first: global watchers observe the frame before any
-    // track's actions mutate it. Finished slots just stop (no FINISHED event).
-    for (auto& slot : updateActions_)
-    {
-        if (slot.finished)
-            continue;
-        if (!slot.ops->onUpdate)
-        {
-            slot.finished = 1;   // enter-only action
-            continue;
-        }
-        if (slot.ops->onUpdate(slot.data, updateBlob_.data() + slot.stateOffset, ctx))
-            slot.finished = 1;
-        if (failed_)
-            return;
-    }
-
-    // Then every track's active state, each with its own FINISHED.
+    // Every track's active state runs its stack; each track has its own FINISHED.
     for (size_t t = 0; t < tracks_.size(); ++t)
     {
         Track& track = tracks_[t];
