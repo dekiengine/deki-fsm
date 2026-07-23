@@ -16,8 +16,8 @@ namespace
     constexpr uint32_t kAwakeId  = DekiHashString("FsmAwake");
     constexpr uint32_t kUpdateId = DekiHashString("FsmUpdate");
 
-    // Event-transition storm guard: a graph whose states hand an event around
-    // in a cycle would otherwise spin forever within one frame.
+    // Event-transition storm guard (machine-wide): a graph whose states hand
+    // an event around in a cycle would otherwise spin forever within a frame.
     constexpr int kMaxTransitionsPerFrame = 16;
 
     const char* kFinishedEvent = "FINISHED";
@@ -70,24 +70,24 @@ void FsmComponent::Update()
 
     transitionsThisFrame_ = 0;
 
-    if (!active_)
+    if (!initialized_)
     {
-        EnterInitialState(*g->data);
-        if (failed_ || !active_)
+        InitializeMachine(*g->data);
+        if (failed_)
             return;
     }
 
     // Events queued between frames (external SendEvent callers, click
-    // callbacks that fired after last frame's pass).
+    // callbacks, events raised during initialization by Awake actions).
     ProcessEvents(*g->data);
-    if (failed_ || !active_)
+    if (failed_)
         return;
 
     RunActions();
     if (failed_)
         return;
 
-    // Events raised by this frame's actions (including FINISHED).
+    // Events raised by this frame's actions (including per-track FINISHED).
     ProcessEvents(*g->data);
 }
 
@@ -102,13 +102,13 @@ void FsmComponent::SendEvent(const std::string& name)
         FailFsm("SendEvent with an empty event name");
         return;
     }
-    eventQueue_.push_back(name);
+    eventQueue_.push_back({ name, -1 });
 }
 
 const std::string& FsmComponent::ActiveStateName() const
 {
-    if (active_ && active_->typeId == kStateId)
-        return static_cast<const FsmStateNode*>(active_->instance)->name;
+    if (!tracks_.empty() && tracks_[0].active && tracks_[0].active->typeId == kStateId)
+        return static_cast<const FsmStateNode*>(tracks_[0].active->instance)->name;
     return kEmptyName;
 }
 
@@ -163,14 +163,10 @@ std::shared_ptr<bool> FsmComponent::EnsureClickWatch(const void* key, ButtonComp
 void FsmComponent::ResetMachine()
 {
     // Hard drop, deliberately WITHOUT running onExit: this path fires when the
-    // graph asset was reloaded or reassigned, so active_ may point into freed
-    // NodeGraphData — touching it would be use-after-free.
-    active_ = nullptr;
-    ops_.clear();
-    stateOffsets_.clear();
-    stateBlob_.clear();
-    finishedLatch_.clear();
-    finishedFired_ = false;
+    // graph asset was reloaded or reassigned, so track state may point into
+    // freed NodeGraphData — touching it would be use-after-free.
+    tracks_.clear();
+    initialized_ = false;
     failed_ = false;
     eventQueue_.clear();
     clickWatches_.clear();   // callbacks on buttons keep their (now orphan) flags alive
@@ -182,10 +178,10 @@ void FsmComponent::RunAwakeStacks(const NodeGraphData& g)
 {
     // Awake is instantaneous, like DekiBehaviour::Awake(): every enabled
     // action of every FsmAwakeNode runs in ONE pass (enter -> one update ->
-    // exit, dt 0) right now, before the Update stacks start and before the
-    // initial state enters. An action that does not finish in that single
-    // pass is frame-based (Wait, Move To, Watch Button, everyFrame) and does
-    // not belong in Awake — that is a graph error, not a partial run.
+    // exit, dt 0) right now, before the Update stacks arm and before any
+    // track enters its first state. An action that does not finish in that
+    // single pass is frame-based (Wait, Move To, Watch Button, everyFrame)
+    // and does not belong in Awake — that is a graph error, not a partial run.
     FsmContext ctx{ GetOwner(), this, 0.0f };
     std::vector<uint8_t> state;   // per-action scratch, discarded after the pass
 
@@ -234,8 +230,8 @@ void FsmComponent::RunAwakeStacks(const NodeGraphData& g)
 void FsmComponent::BuildUpdateStacks(const NodeGraphData& g)
 {
     // Collect every FsmUpdateNode's enabled actions into one persistent table.
-    // Built once per graph (with the initial state), never exited: this is the
-    // machine's Update() lifecycle, running alongside whichever state is active.
+    // Built once per graph, never exited: this is the machine's Update()
+    // lifecycle, running alongside every track.
     updateActions_.clear();
     updateBlob_.clear();
 
@@ -274,12 +270,14 @@ void FsmComponent::BuildUpdateStacks(const NodeGraphData& g)
     }
 }
 
-void FsmComponent::EnterInitialState(const NodeGraphData& g)
+void FsmComponent::InitializeMachine(const NodeGraphData& g)
 {
-    // Script lifecycle order: Awake (one pass, now) -> Update stacks arm ->
-    // the Start wire picks the initial state. Events queued by Awake actions
-    // (a one-shot Send Event / Compare Property) are processed right after
-    // the initial state enters, so Awake can redirect the machine on frame one.
+    // Script lifecycle order: Awake pass -> Update stacks arm -> every wired
+    // lifecycle root output begins its parallel track (in graph node order).
+    // Events queued by Awake actions are processed right after, so Awake can
+    // redirect any track on frame one.
+    initialized_ = true;
+
     RunAwakeStacks(g);
     if (failed_)
         return;
@@ -288,22 +286,43 @@ void FsmComponent::EnterInitialState(const NodeGraphData& g)
     if (failed_)
         return;
 
-    const NodeGraphData::NodeInstance* start = g.FindFirstOfType(kStartId);
-    if (!start)
+    for (const auto& node : g.Nodes())
     {
-        FailFsm("graph has no Start node");
-        return;
+        if (failed_)
+            return;
+
+        if (node.typeId == kStartId)
+        {
+            // Start exists solely to point at a state; unwired = authoring error.
+            const NodeGraphData::NodeInstance* first = g.Next(node.id, 0);
+            if (!first)
+            {
+                FailFsm("Start node's output is not wired to a state");
+                return;
+            }
+            tracks_.emplace_back();
+            EnterState(g, tracks_.back(), first);
+        }
+        else if (node.typeId == kAwakeId || node.typeId == kUpdateId)
+        {
+            // Optional: these nodes carry their lifecycle stacks either way;
+            // a wired output additionally starts a parallel flow.
+            const NodeGraphData::NodeInstance* first = g.Next(node.id, 0);
+            if (first)
+            {
+                tracks_.emplace_back();
+                EnterState(g, tracks_.back(), first);
+            }
+        }
     }
-    const NodeGraphData::NodeInstance* first = g.Next(start->id, 0);
-    if (!first)
-    {
-        FailFsm("Start node's output is not wired to a state");
-        return;
-    }
-    EnterState(g, first);
+
+    if (tracks_.empty() && updateActions_.empty())
+        FailFsm("graph has nothing to run: no wired Start/Awake/Update output "
+                "and no Update actions");
 }
 
-void FsmComponent::EnterState(const NodeGraphData& g, const NodeGraphData::NodeInstance* state)
+void FsmComponent::EnterState(const NodeGraphData& g, Track& track,
+                              const NodeGraphData::NodeInstance* state)
 {
     if (state->typeId != kStateId)
     {
@@ -311,16 +330,16 @@ void FsmComponent::EnterState(const NodeGraphData& g, const NodeGraphData::NodeI
         return;
     }
 
-    ExitState();
-    active_ = state;
+    ExitState(track);
+    track.active = state;
 
     // Build the per-entry action table: ops + a zeroed runtime-state blob,
     // index-aligned with the state's children.
     const size_t count = state->children.size();
-    ops_.assign(count, nullptr);
-    stateOffsets_.assign(count, 0);
-    finishedLatch_.assign(count, 0);
-    finishedFired_ = false;
+    track.ops.assign(count, nullptr);
+    track.stateOffsets.assign(count, 0);
+    track.finishedLatch.assign(count, 0);
+    track.finishedFired = false;
 
     size_t blobSize = 0;
     for (size_t i = 0; i < count; ++i)
@@ -332,88 +351,103 @@ void FsmComponent::EnterState(const NodeGraphData& g, const NodeGraphData::NodeI
         if (!ops)
         {
             FailFsm("state contains an action with no registered runtime ops");
-            active_ = nullptr;
+            track.active = nullptr;
             return;
         }
-        ops_[i] = ops;
-        stateOffsets_[i] = blobSize;
+        track.ops[i] = ops;
+        track.stateOffsets[i] = blobSize;
         blobSize += ops->stateSize;
     }
-    stateBlob_.assign(blobSize, 0);
+    track.stateBlob.assign(blobSize, 0);
 
     FsmContext ctx{ GetOwner(), this, 0.0f };
     for (size_t i = 0; i < count; ++i)
     {
-        if (!ops_[i] || !ops_[i]->onEnter)
+        if (!track.ops[i] || !track.ops[i]->onEnter)
             continue;
-        ops_[i]->onEnter(state->children[i].instance, stateBlob_.data() + stateOffsets_[i], ctx);
+        track.ops[i]->onEnter(state->children[i].instance,
+                              track.stateBlob.data() + track.stateOffsets[i], ctx);
         if (failed_)
             return;
     }
 }
 
-void FsmComponent::ExitState()
+void FsmComponent::ExitState(Track& track)
 {
-    if (!active_)
+    if (!track.active)
         return;
 
     FsmContext ctx{ GetOwner(), this, 0.0f };
-    for (size_t i = 0; i < ops_.size(); ++i)
+    for (size_t i = 0; i < track.ops.size(); ++i)
     {
-        if (ops_[i] && ops_[i]->onExit)
-            ops_[i]->onExit(active_->children[i].instance,
-                            stateBlob_.data() + stateOffsets_[i], ctx);
+        if (track.ops[i] && track.ops[i]->onExit)
+            track.ops[i]->onExit(track.active->children[i].instance,
+                                 track.stateBlob.data() + track.stateOffsets[i], ctx);
     }
 
-    active_ = nullptr;
-    ops_.clear();
-    stateOffsets_.clear();
-    stateBlob_.clear();
-    finishedLatch_.clear();
-    finishedFired_ = false;
+    track.active = nullptr;
+    track.ops.clear();
+    track.stateOffsets.clear();
+    track.stateBlob.clear();
+    track.finishedLatch.clear();
+    track.finishedFired = false;
 }
 
 void FsmComponent::ProcessEvents(const NodeGraphData& g)
 {
-    while (!eventQueue_.empty() && !failed_ && active_)
+    while (!eventQueue_.empty() && !failed_)
     {
-        const std::string ev = eventQueue_.front();
+        const QueuedEvent ev = eventQueue_.front();
         eventQueue_.erase(eventQueue_.begin());
 
-        const auto* state = static_cast<const FsmStateNode*>(active_->instance);
-        int pin = -1;
-        for (size_t i = 0; i < state->transitions.size(); ++i)
+        // Broadcast events are offered to every track (each may transition on
+        // it independently); track-scoped events (FINISHED) only to their own.
+        for (size_t t = 0; t < tracks_.size() && !failed_; ++t)
         {
-            if (state->transitions[i] == ev)
+            if (ev.track >= 0 && static_cast<int>(t) != ev.track)
+                continue;
+
+            Track& track = tracks_[t];
+            if (!track.active)
+                continue;
+
+            const auto* state = static_cast<const FsmStateNode*>(track.active->instance);
+            int pin = -1;
+            for (size_t i = 0; i < state->transitions.size(); ++i)
             {
-                pin = static_cast<int>(i);
-                break;
+                if (state->transitions[i] == ev.name)
+                {
+                    pin = static_cast<int>(i);
+                    break;
+                }
             }
-        }
-        if (pin < 0)
-        {
-            // Not listened for in this state: dropped by design.
-            DEKI_LOG_DEBUG("FsmComponent: event '%s' ignored by state '%s'",
-                           ev.c_str(), state->name.c_str());
-            continue;
-        }
+            if (pin < 0)
+            {
+                // Not listened for here. For a track's own FINISHED that just
+                // means a terminal state (the track parks — by design).
+                if (ev.track >= 0)
+                    DEKI_LOG_DEBUG("FsmComponent: event '%s' ignored by state '%s'",
+                                   ev.name.c_str(), state->name.c_str());
+                continue;
+            }
 
-        const NodeGraphData::NodeInstance* next = g.Next(active_->id, pin);
-        if (!next)
-        {
-            char buf[192];
-            std::snprintf(buf, sizeof(buf), "state '%s' transition '%s' is not wired",
-                          state->name.c_str(), ev.c_str());
-            FailFsm(buf);
-            return;
-        }
+            const NodeGraphData::NodeInstance* next = g.Next(track.active->id, pin);
+            if (!next)
+            {
+                char buf[192];
+                std::snprintf(buf, sizeof(buf), "state '%s' transition '%s' is not wired",
+                              state->name.c_str(), ev.name.c_str());
+                FailFsm(buf);
+                return;
+            }
 
-        if (++transitionsThisFrame_ > kMaxTransitionsPerFrame)
-        {
-            FailFsm("more than 16 transitions in one frame (event cycle?)");
-            return;
+            if (++transitionsThisFrame_ > kMaxTransitionsPerFrame)
+            {
+                FailFsm("more than 16 transitions in one frame (event cycle?)");
+                return;
+            }
+            EnterState(g, track, next);
         }
-        EnterState(g, next);
     }
 }
 
@@ -422,8 +456,8 @@ void FsmComponent::RunActions()
     const float dt = DekiTime::GetDeltaTimeF() * 0.001f;
     FsmContext ctx{ GetOwner(), this, dt };
 
-    // Update stacks first: global watchers observe the frame before the active
-    // state's actions mutate it. Finished slots just stop (no FINISHED event).
+    // Update stacks first: global watchers observe the frame before any
+    // track's actions mutate it. Finished slots just stop (no FINISHED event).
     for (auto& slot : updateActions_)
     {
         if (slot.finished)
@@ -439,30 +473,38 @@ void FsmComponent::RunActions()
             return;
     }
 
-    bool allFinished = true;
-    for (size_t i = 0; i < ops_.size() && active_; ++i)
+    // Then every track's active state, each with its own FINISHED.
+    for (size_t t = 0; t < tracks_.size(); ++t)
     {
-        if (!ops_[i])
-            continue;   // disabled child
-        if (finishedLatch_[i])
+        Track& track = tracks_[t];
+        if (!track.active)
             continue;
-        if (!ops_[i]->onUpdate)
-        {
-            finishedLatch_[i] = 1;   // enter-only action
-            continue;
-        }
-        if (ops_[i]->onUpdate(active_->children[i].instance,
-                              stateBlob_.data() + stateOffsets_[i], ctx))
-            finishedLatch_[i] = 1;
-        else
-            allFinished = false;
-        if (failed_)
-            return;
-    }
 
-    if (active_ && allFinished && !finishedFired_)
-    {
-        finishedFired_ = true;
-        eventQueue_.push_back(kFinishedEvent);
+        bool allFinished = true;
+        for (size_t i = 0; i < track.ops.size() && track.active; ++i)
+        {
+            if (!track.ops[i])
+                continue;   // disabled child
+            if (track.finishedLatch[i])
+                continue;
+            if (!track.ops[i]->onUpdate)
+            {
+                track.finishedLatch[i] = 1;   // enter-only action
+                continue;
+            }
+            if (track.ops[i]->onUpdate(track.active->children[i].instance,
+                                       track.stateBlob.data() + track.stateOffsets[i], ctx))
+                track.finishedLatch[i] = 1;
+            else
+                allFinished = false;
+            if (failed_)
+                return;
+        }
+
+        if (track.active && allFinished && !track.finishedFired)
+        {
+            track.finishedFired = true;
+            eventQueue_.push_back({ kFinishedEvent, static_cast<int>(t) });
+        }
     }
 }

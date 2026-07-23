@@ -7,15 +7,19 @@
 
 // Node vocabulary for the state-machine graph ("Fsm" domain).
 //
-// A graph is states connected by event wires. Exactly one state is active per
-// FsmComponent; its action stack (child instances, category "Fsm/Actions")
-// runs every frame. Each entry in a state's `transitions` list is one output
-// pin, labeled with the event name it listens for; when that event fires the
-// machine follows the wire to the next state. "FINISHED" is the built-in
-// event raised when every action in the state has finished.
+// A graph mirrors a script's lifecycle with PARALLEL TRACKS, because a
+// DekiBehaviour can do independent things in Awake/Start/Update and the FSM
+// keeps that power: every WIRED lifecycle output (Start "start", Awake
+// "done", Update "flow") begins its own track — an independent state flow
+// with its own active state, all running alongside each other on one
+// FsmComponent. Custom events broadcast to every track (each track's active
+// state decides via its transitions); FINISHED is raised and matched
+// per-track. Within one track exactly one state is active; its action stack
+// runs every frame; transitions are wires labeled with event names.
 
-// Where the machine starts. Exactly one per graph; its single output points at
-// the initial state.
+// Conventional main flow entry. Its single output MUST be wired to the first
+// state. Optional since tracks can also begin at Awake/Update outputs — a
+// graph that is only an Update stack (a pure per-frame behaviour) is legal.
 struct FsmStartNode
 {
     DEKI_NODE(FsmStartNode, "FsmStart", "Fsm/Flow")
@@ -23,36 +27,34 @@ struct FsmStartNode
     DEKI_NODE_OUTPUTS("start")
 };
 
-// One-shot setup stack: the FSM's Awake() lifecycle, mirroring a script's.
-// A standalone node (no pins) whose enabled actions run exactly ONCE, in a
-// single pass, when the machine initializes — before the Update stacks start
-// and before the initial state is entered. Use it for birth-time setup (Set
-// Property initial values) or immediate routing (a one-shot Compare Property
-// or Send Event here is processed right after the initial state enters, so it
-// can redirect the machine on frame one). Because Awake is instantaneous,
-// every action in it must FINISH in that single pass: frame-based actions
-// (Wait, Move To, Watch Button, everyFrame setters/compares) are a graph
-// error here — they belong in a state or an Update stack.
+// One-shot setup: the FSM's Awake() lifecycle. Its enabled actions run
+// exactly ONCE, in a single pass, when the machine initializes — before the
+// Update stacks arm and before any track enters its first state. Because the
+// pass is instantaneous, every action in it must finish immediately;
+// frame-based actions (Wait, Move To, Watch Button, everyFrame) are a graph
+// error here. The optional "done" output begins a parallel track right after
+// setup. Events queued by Awake actions are processed as soon as tracks are
+// live, so Awake can also redirect flows on frame one.
 struct FsmAwakeNode
 {
     DEKI_NODE(FsmAwakeNode, "FsmAwake", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "Awake";
+    DEKI_NODE_OUTPUTS("done")
     DEKI_NODE_CHILDREN("Fsm/Actions")
 };
 
-// Always-on action stack: the FSM's Update() lifecycle, mirroring a script's.
-// A standalone node (no pins, park it anywhere on the canvas) whose enabled
-// actions run every frame for the life of the machine, regardless of which
-// state is active. Use it for global watchers: a Compare Property or Watch
-// Button here raises events that transition the main machine from ANY state
-// (the event is still matched against the active state's transitions). Actions
-// that finish (a one-shot Set Property, a Wait) simply stop; there is no
-// FINISHED here because there is nothing to transition. A graph may hold any
-// number of Update nodes; all their stacks run.
+// Always-on stack: the FSM's Update() lifecycle. Its enabled actions run
+// every frame for the life of the machine, regardless of any track's state —
+// the home for global watchers (a Compare Property or Watch Button here
+// raises events that can transition EVERY track). Finished actions simply
+// stop; there is no FINISHED from this stack. The optional "flow" output
+// begins a parallel track at initialization — a state flow running next to
+// the main Start flow. A graph may hold any number of Update nodes.
 struct FsmUpdateNode
 {
     DEKI_NODE(FsmUpdateNode, "FsmUpdate", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "Update";
+    DEKI_NODE_OUTPUTS("flow")
     DEKI_NODE_CHILDREN("Fsm/Actions")
 };
 
@@ -71,7 +73,7 @@ public:
     DEKI_EXPORT std::string name = "State";
 
     // Event names this state listens for, one output pin each. A state with no
-    // transitions is terminal (the machine parks there). An event that fires
+    // transitions is terminal (its track parks there). An event that fires
     // with no matching entry is ignored; a matching entry whose pin is unwired
     // is a graph error (no fallback).
     DEKI_EXPORT std::vector<std::string> transitions = { "FINISHED" };

@@ -13,18 +13,25 @@
 
 // Runs a state-machine graph asset (PlayMaker-style) on the object it sits on.
 //
-// One state is active at a time. Every frame the active state's enabled
-// actions run in stack order; when all of them have finished, the built-in
-// FINISHED event fires. Events (FINISHED, or custom names raised by actions /
-// SendEvent()) are matched against the active state's `transitions` list; a
-// match follows that pin's wire to the next state (exit -> enter). Unmatched
-// events are dropped (states legitimately listen to subsets).
+// The graph mirrors a script's lifecycle with PARALLEL TRACKS: every WIRED
+// lifecycle root output (Start "start", Awake "done", Update "flow") begins
+// its own track — an independent state flow with its own active state — the
+// FSM equivalent of a DekiBehaviour doing separate things in Awake/Start/
+// Update. Within each track the active state's enabled actions run in stack
+// order every frame; when all of them have finished, that track's FINISHED
+// fires (matched only against that track's transitions). Custom events
+// (raised by actions or SendEvent()) broadcast to every track; each track's
+// active state decides via its `transitions` list. Awake nodes additionally
+// run a one-shot setup action pass at initialization, and Update nodes run
+// always-on action stacks every frame — both machine-level, independent of
+// any track.
 //
-// Failure policy (no fallbacks): a missing Start node, an unwired Start or
-// transition pin, a link into a non-State node, an action type with no
-// registered runtime ops, an unresolvable target object, or a transition
-// storm (>16 per frame) logs ONE error and latches the machine off until the
-// graph asset is reloaded or reassigned.
+// Failure policy (no fallbacks): an unwired Start pin, a wire into a
+// non-State node, an action type with no registered runtime ops, an
+// unresolvable target object, a matched transition with no wire, a
+// transition storm (>16 per frame), or a graph with nothing to run logs ONE
+// error and latches the machine off until the graph asset is reloaded or
+// reassigned.
 class FsmComponent : public DekiBehaviour
 {
     DEKI_COMPONENT(FsmComponent, DekiBehaviour, "Logic", "3f8a61c9-7b2e-4d5a-9c14-8e6f2a0b5d73", "DEKI_FEATURE_FSM")
@@ -39,13 +46,14 @@ public:
     void Awake() override;
     void Update() override;
 
-    // Raise an event by name (from actions or any game code). Queued and
-    // matched against the active state's transitions during Update.
+    // Raise an event by name (from actions or any game code). Queued,
+    // broadcast to every track, matched against each track's active state's
+    // transitions during Update.
     void SendEvent(const std::string& name);
 
     bool Failed() const { return failed_; }
 
-    // The active state's authored name ("" while none) — debug/UI readout.
+    // The first track's authored state name ("" while none) — debug/UI readout.
     const std::string& ActiveStateName() const;
 
     // ---- Internal helpers for actions (via FsmContext) ----
@@ -65,34 +73,49 @@ public:
     std::shared_ptr<bool> EnsureClickWatch(const void* key, class ButtonComponent* button);
 
 private:
+    // One independent state flow, begun by a wired lifecycle root output.
+    // Action bookkeeping is index-aligned with the active state's children
+    // (disabled children get a null ops slot).
+    struct Track
+    {
+        const NodeGraphData::NodeInstance* active = nullptr;
+        std::vector<const FsmActionOps*> ops;
+        std::vector<size_t> stateOffsets;
+        std::vector<uint8_t> stateBlob;      // zero-initialized on state entry
+        std::vector<uint8_t> finishedLatch;
+        bool finishedFired = false;
+    };
+
+    // track -1 = broadcast (offered to every track); >= 0 = that track only
+    // (FINISHED, which must not leak between parallel flows).
+    struct QueuedEvent
+    {
+        std::string name;
+        int track = -1;
+    };
+
     void ResetMachine();
     void RunAwakeStacks(const NodeGraphData& g);
     void BuildUpdateStacks(const NodeGraphData& g);
-    void EnterInitialState(const NodeGraphData& g);
-    void EnterState(const NodeGraphData& g, const NodeGraphData::NodeInstance* state);
-    void ExitState();
+    void InitializeMachine(const NodeGraphData& g);
+    void EnterState(const NodeGraphData& g, Track& track,
+                    const NodeGraphData::NodeInstance* state);
+    void ExitState(Track& track);
     void ProcessEvents(const NodeGraphData& g);
     void RunActions();
 
-    const NodeGraphData::NodeInstance* active_ = nullptr;
+    std::vector<Track> tracks_;
+    bool initialized_ = false;            // tracks/stacks built for lastGraph_
     FsmGraph* lastGraph_ = nullptr;       // detect asset reload/reassign
     bool failed_ = false;
-
-    // Per-active-state action bookkeeping, index-aligned with the state's
-    // children (disabled children get a null ops slot).
-    std::vector<const FsmActionOps*> ops_;
-    std::vector<size_t> stateOffsets_;
-    std::vector<uint8_t> stateBlob_;      // zero-initialized on state entry
-    std::vector<uint8_t> finishedLatch_;
-    bool finishedFired_ = false;
     int transitionsThisFrame_ = 0;
 
-    std::vector<std::string> eventQueue_;
+    std::vector<QueuedEvent> eventQueue_;
     std::unordered_map<const void*, std::shared_ptr<bool>> clickWatches_;
 
-    // Always-on Update stacks (FsmUpdateNode): built once per graph alongside
-    // the initial state, run every frame regardless of the active state, and
-    // never exited. Finished actions just stop (no FINISHED — no transitions).
+    // Always-on Update stacks (FsmUpdateNode action lists): built once per
+    // graph, run every frame before any track's actions, never exited.
+    // Finished actions just stop (no FINISHED — no transitions).
     struct UpdateActionSlot
     {
         const void* data = nullptr;         // shared action instance (graph-owned)
