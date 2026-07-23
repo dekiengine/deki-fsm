@@ -23,6 +23,23 @@ struct FsmStartNode
     DEKI_NODE_OUTPUTS("start")
 };
 
+// One-shot setup stack: the FSM's Awake() lifecycle, mirroring a script's.
+// A standalone node (no pins) whose enabled actions run exactly ONCE, in a
+// single pass, when the machine initializes — before the Update stacks start
+// and before the initial state is entered. Use it for birth-time setup (Set
+// Property initial values) or immediate routing (a one-shot Compare Property
+// or Send Event here is processed right after the initial state enters, so it
+// can redirect the machine on frame one). Because Awake is instantaneous,
+// every action in it must FINISH in that single pass: frame-based actions
+// (Wait, Move To, Watch Button, everyFrame setters/compares) are a graph
+// error here — they belong in a state or an Update stack.
+struct FsmAwakeNode
+{
+    DEKI_NODE(FsmAwakeNode, "FsmAwake", "Fsm/Flow")
+    static constexpr const char* StaticNodeDisplayName = "Awake";
+    DEKI_NODE_CHILDREN("Fsm/Actions")
+};
+
 // Always-on action stack: the FSM's Update() lifecycle, mirroring a script's.
 // A standalone node (no pins, park it anywhere on the canvas) whose enabled
 // actions run every frame for the life of the machine, regardless of which
@@ -61,5 +78,6 @@ public:
 };
 
 #include "generated/FsmStartNode.gen.h"
+#include "generated/FsmAwakeNode.gen.h"
 #include "generated/FsmUpdateNode.gen.h"
 #include "generated/FsmStateNode.gen.h"

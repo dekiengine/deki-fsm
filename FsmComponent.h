@@ -66,6 +66,7 @@ public:
 
 private:
     void ResetMachine();
+    void RunAwakeStacks(const NodeGraphData& g);
     void BuildUpdateStacks(const NodeGraphData& g);
     void EnterInitialState(const NodeGraphData& g);
     void EnterState(const NodeGraphData& g, const NodeGraphData::NodeInstance* state);

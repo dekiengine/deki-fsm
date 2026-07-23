@@ -61,6 +61,7 @@ extern "C" {
 DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
 {
     RegisterFsmNodeType<FsmStartNode>();
+    RegisterFsmNodeType<FsmAwakeNode>();
     RegisterFsmNodeType<FsmUpdateNode>();
     RegisterFsmNodeType<FsmStateNode>();
     RegisterFsmNodeType<FsmWaitAction>();

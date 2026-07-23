@@ -13,6 +13,7 @@ namespace
 {
     constexpr uint32_t kStartId  = DekiHashString("FsmStart");
     constexpr uint32_t kStateId  = DekiHashString("FsmState");
+    constexpr uint32_t kAwakeId  = DekiHashString("FsmAwake");
     constexpr uint32_t kUpdateId = DekiHashString("FsmUpdate");
 
     // Event-transition storm guard: a graph whose states hand an event around
@@ -177,6 +178,59 @@ void FsmComponent::ResetMachine()
     updateBlob_.clear();
 }
 
+void FsmComponent::RunAwakeStacks(const NodeGraphData& g)
+{
+    // Awake is instantaneous, like DekiBehaviour::Awake(): every enabled
+    // action of every FsmAwakeNode runs in ONE pass (enter -> one update ->
+    // exit, dt 0) right now, before the Update stacks start and before the
+    // initial state enters. An action that does not finish in that single
+    // pass is frame-based (Wait, Move To, Watch Button, everyFrame) and does
+    // not belong in Awake — that is a graph error, not a partial run.
+    FsmContext ctx{ GetOwner(), this, 0.0f };
+    std::vector<uint8_t> state;   // per-action scratch, discarded after the pass
+
+    for (const auto& node : g.Nodes())
+    {
+        if (node.typeId != kAwakeId)
+            continue;
+        for (const auto& child : node.children)
+        {
+            if (!child.enabled)
+                continue;
+            const FsmActionOps* ops = FsmActionRegistry::Instance().Find(child.typeId);
+            if (!ops)
+            {
+                FailFsm("Awake stack contains an action with no registered runtime ops");
+                return;
+            }
+
+            state.assign(ops->stateSize, 0);
+            if (ops->onEnter)
+                ops->onEnter(child.instance, state.data(), ctx);
+            if (failed_)
+                return;
+
+            bool finished = true;
+            if (ops->onUpdate)
+                finished = ops->onUpdate(child.instance, state.data(), ctx);
+            if (failed_)
+                return;
+            if (!finished)
+            {
+                FailFsm("Awake action did not finish immediately — frame-based "
+                        "actions (Wait, Move To, Watch Button, everyFrame) belong "
+                        "in a state or an Update stack, not Awake");
+                return;
+            }
+
+            if (ops->onExit)
+                ops->onExit(child.instance, state.data(), ctx);
+            if (failed_)
+                return;
+        }
+    }
+}
+
 void FsmComponent::BuildUpdateStacks(const NodeGraphData& g)
 {
     // Collect every FsmUpdateNode's enabled actions into one persistent table.
@@ -222,6 +276,14 @@ void FsmComponent::BuildUpdateStacks(const NodeGraphData& g)
 
 void FsmComponent::EnterInitialState(const NodeGraphData& g)
 {
+    // Script lifecycle order: Awake (one pass, now) -> Update stacks arm ->
+    // the Start wire picks the initial state. Events queued by Awake actions
+    // (a one-shot Send Event / Compare Property) are processed right after
+    // the initial state enters, so Awake can redirect the machine on frame one.
+    RunAwakeStacks(g);
+    if (failed_)
+        return;
+
     BuildUpdateStacks(g);
     if (failed_)
         return;
