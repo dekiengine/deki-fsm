@@ -23,6 +23,22 @@ struct FsmStartNode
     DEKI_NODE_OUTPUTS("start")
 };
 
+// Always-on action stack: the FSM's Update() lifecycle, mirroring a script's.
+// A standalone node (no pins, park it anywhere on the canvas) whose enabled
+// actions run every frame for the life of the machine, regardless of which
+// state is active. Use it for global watchers: a Compare Property or Watch
+// Button here raises events that transition the main machine from ANY state
+// (the event is still matched against the active state's transitions). Actions
+// that finish (a one-shot Set Property, a Wait) simply stop; there is no
+// FINISHED here because there is nothing to transition. A graph may hold any
+// number of Update nodes; all their stacks run.
+struct FsmUpdateNode
+{
+    DEKI_NODE(FsmUpdateNode, "FsmUpdate", "Fsm/Flow")
+    static constexpr const char* StaticNodeDisplayName = "Update";
+    DEKI_NODE_CHILDREN("Fsm/Actions")
+};
+
 // One state: a named node holding an ordered stack of actions (authored in the
 // inspector, PlayMaker-style) plus one output pin per transition event. The
 // canvas shows the state's `name` as its title.
@@ -45,4 +61,5 @@ public:
 };
 
 #include "generated/FsmStartNode.gen.h"
+#include "generated/FsmUpdateNode.gen.h"
 #include "generated/FsmStateNode.gen.h"

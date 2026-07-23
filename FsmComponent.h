@@ -66,6 +66,7 @@ public:
 
 private:
     void ResetMachine();
+    void BuildUpdateStacks(const NodeGraphData& g);
     void EnterInitialState(const NodeGraphData& g);
     void EnterState(const NodeGraphData& g, const NodeGraphData::NodeInstance* state);
     void ExitState();
@@ -87,6 +88,19 @@ private:
 
     std::vector<std::string> eventQueue_;
     std::unordered_map<const void*, std::shared_ptr<bool>> clickWatches_;
+
+    // Always-on Update stacks (FsmUpdateNode): built once per graph alongside
+    // the initial state, run every frame regardless of the active state, and
+    // never exited. Finished actions just stop (no FINISHED — no transitions).
+    struct UpdateActionSlot
+    {
+        const void* data = nullptr;         // shared action instance (graph-owned)
+        const FsmActionOps* ops = nullptr;
+        size_t stateOffset = 0;             // into updateBlob_
+        uint8_t finished = 0;
+    };
+    std::vector<UpdateActionSlot> updateActions_;
+    std::vector<uint8_t> updateBlob_;
 };
 
 #include "generated/FsmComponent.gen.h"

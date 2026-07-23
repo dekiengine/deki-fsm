@@ -12,8 +12,11 @@
 #include "DekiModuleFeatureMeta.h"
 #include "FsmModule.h"
 #include "FsmComponent.h"
+#include "FsmNodes.h"
+#include "FsmActions.h"
 #include "reflection/ComponentRegistry.h"
 #include "reflection/ComponentFactory.h"
+#include "reflection/DekiNode.h"   // NodeFactory + NodeTypeRegistry (editor)
 
 #ifdef DEKI_EDITOR
 
@@ -22,9 +25,52 @@ extern void DekiFsm_RegisterComponents();
 extern int DekiFsm_GetAutoComponentCount();
 extern const DekiComponentMeta* DekiFsm_GetAutoComponentMeta(int index);
 
+// Defined in editor/FsmGraphEditor.cpp (re-registers the Fsm graph domain).
+extern "C" void DekiFsm_RegisterEditorGraphDomain(void);
+
 static bool s_FsmRegistered = false;
 
+namespace
+{
+    // Re-runnable mirror of the generated REGISTER_RUNTIME_NODE/REGISTER_NODE
+    // static registrars. Those run once at DLL load; the editor's plugin-only
+    // hot reload wipes the shared node registries WITHOUT unloading this
+    // module, so registration must be repeatable on demand. NodeFactory
+    // overwrites by typeId and NodeTypeRegistry dedupes, so this is idempotent.
+    template<typename T>
+    void RegisterFsmNodeType()
+    {
+        PrefabFormat::NodeFactory::Instance().Register(
+            DekiHashString(T::StaticNodeName),
+            []() -> void* { return new T(); },
+            [](void* p, PrefabFormat::PrefabMsgPackParser& parser, uint32_t mapSize) -> bool {
+                return DeserializeMsgPack(*static_cast<T*>(p), parser, mapSize); },
+            [](void* p) { delete static_cast<T*>(p); });
+        NodeTypeRegistry::Instance().Register(&T::GetNodeMeta());
+    }
+}
+
 extern "C" {
+
+/**
+ * @brief (Re-)register this module's node graph types: state/action node
+ * factories, editor metas, and the Fsm graph domain. Called at module load via
+ * DekiPlugin_RegisterComponents and again after any registry wipe that keeps
+ * this DLL loaded (plugin-only hot reload).
+ */
+DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
+{
+    RegisterFsmNodeType<FsmStartNode>();
+    RegisterFsmNodeType<FsmUpdateNode>();
+    RegisterFsmNodeType<FsmStateNode>();
+    RegisterFsmNodeType<FsmWaitAction>();
+    RegisterFsmNodeType<FsmSendEventAction>();
+    RegisterFsmNodeType<FsmSetPropertyAction>();
+    RegisterFsmNodeType<FsmComparePropertyAction>();
+    RegisterFsmNodeType<FsmMoveToAction>();
+    RegisterFsmNodeType<FsmWatchButtonAction>();
+    DekiFsm_RegisterEditorGraphDomain();
+}
 
 /**
  * @brief Ensure deki-fsm module is loaded and components are registered.
@@ -92,6 +138,10 @@ DEKI_PLUGIN_API const DekiComponentMeta* DekiPlugin_GetComponentMeta(int index)
 DEKI_PLUGIN_API void DekiPlugin_RegisterComponents(void)
 {
     DekiFsm_EnsureRegistered();
+    // Deliberately OUTSIDE the s_FsmRegistered latch: node registries are
+    // wiped on every hot reload (full or plugin-only) and this export is the
+    // re-registration path for the plugin-only case.
+    DekiFsm_RegisterGraphTypes();
 }
 
 DEKI_PLUGIN_API void DekiPlugin_OnPlayModeStop(void)

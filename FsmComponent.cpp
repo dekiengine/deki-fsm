@@ -11,8 +11,9 @@
 
 namespace
 {
-    constexpr uint32_t kStartId = DekiHashString("FsmStart");
-    constexpr uint32_t kStateId = DekiHashString("FsmState");
+    constexpr uint32_t kStartId  = DekiHashString("FsmStart");
+    constexpr uint32_t kStateId  = DekiHashString("FsmState");
+    constexpr uint32_t kUpdateId = DekiHashString("FsmUpdate");
 
     // Event-transition storm guard: a graph whose states hand an event around
     // in a cycle would otherwise spin forever within one frame.
@@ -172,10 +173,59 @@ void FsmComponent::ResetMachine()
     failed_ = false;
     eventQueue_.clear();
     clickWatches_.clear();   // callbacks on buttons keep their (now orphan) flags alive
+    updateActions_.clear();
+    updateBlob_.clear();
+}
+
+void FsmComponent::BuildUpdateStacks(const NodeGraphData& g)
+{
+    // Collect every FsmUpdateNode's enabled actions into one persistent table.
+    // Built once per graph (with the initial state), never exited: this is the
+    // machine's Update() lifecycle, running alongside whichever state is active.
+    updateActions_.clear();
+    updateBlob_.clear();
+
+    size_t blobSize = 0;
+    for (const auto& node : g.Nodes())
+    {
+        if (node.typeId != kUpdateId)
+            continue;
+        for (const auto& child : node.children)
+        {
+            if (!child.enabled)
+                continue;
+            const FsmActionOps* ops = FsmActionRegistry::Instance().Find(child.typeId);
+            if (!ops)
+            {
+                FailFsm("Update stack contains an action with no registered runtime ops");
+                return;
+            }
+            UpdateActionSlot slot;
+            slot.data = child.instance;
+            slot.ops = ops;
+            slot.stateOffset = blobSize;
+            updateActions_.push_back(slot);
+            blobSize += ops->stateSize;
+        }
+    }
+    updateBlob_.assign(blobSize, 0);
+
+    FsmContext ctx{ GetOwner(), this, 0.0f };
+    for (auto& slot : updateActions_)
+    {
+        if (slot.ops->onEnter)
+            slot.ops->onEnter(slot.data, updateBlob_.data() + slot.stateOffset, ctx);
+        if (failed_)
+            return;
+    }
 }
 
 void FsmComponent::EnterInitialState(const NodeGraphData& g)
 {
+    BuildUpdateStacks(g);
+    if (failed_)
+        return;
+
     const NodeGraphData::NodeInstance* start = g.FindFirstOfType(kStartId);
     if (!start)
     {
@@ -309,6 +359,23 @@ void FsmComponent::RunActions()
 {
     const float dt = DekiTime::GetDeltaTimeF() * 0.001f;
     FsmContext ctx{ GetOwner(), this, dt };
+
+    // Update stacks first: global watchers observe the frame before the active
+    // state's actions mutate it. Finished slots just stop (no FINISHED event).
+    for (auto& slot : updateActions_)
+    {
+        if (slot.finished)
+            continue;
+        if (!slot.ops->onUpdate)
+        {
+            slot.finished = 1;   // enter-only action
+            continue;
+        }
+        if (slot.ops->onUpdate(slot.data, updateBlob_.data() + slot.stateOffset, ctx))
+            slot.finished = 1;
+        if (failed_)
+            return;
+    }
 
     bool allFinished = true;
     for (size_t i = 0; i < ops_.size() && active_; ++i)
