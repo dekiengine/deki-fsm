@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FsmModule.h"   // DEKI_FSM_API
+#include "FsmApi.h"   // DEKI_FSM_API
 
 #include <cstddef>
 #include <cstdint>

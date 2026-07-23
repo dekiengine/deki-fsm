@@ -18,20 +18,8 @@
  * project DLL.
  */
 
-// DLL export macro
-#ifdef DEKI_EDITOR
-    #ifdef _WIN32
-        #ifdef DEKI_FSM_EXPORTS
-            #define DEKI_FSM_API __declspec(dllexport)
-        #else
-            #define DEKI_FSM_API __declspec(dllimport)
-        #endif
-    #else
-        #define DEKI_FSM_API
-    #endif
-#else
-    #define DEKI_FSM_API
-#endif
+// DLL export macro (own header so intra-module headers avoid this aggregator)
+#include "FsmApi.h"
 
 // Include all module headers when module is enabled
 #ifdef DEKI_MODULE_FSM
