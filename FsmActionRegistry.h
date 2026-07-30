@@ -31,23 +31,33 @@ struct FsmContext
     void Fail(const char* message);
 };
 
+// onUpdate return value: the action is still running, so nothing downstream of
+// it runs this frame. Anything >= 0 is the OUTPUT PIN the action finished on.
+constexpr int kFsmActionRunning = -1;
+
 /**
  * @brief Runtime behavior for one action type.
  *
  * Action DATA lives in reflected structs shared by every FsmComponent using
  * the same graph asset, so per-run state goes in a separate blob the
- * interpreter allocates per state entry: `stateSize` bytes, zero-initialized,
- * passed back to every callback. onEnter/onExit may be null. onUpdate returns
- * true when the action has finished (it stops being updated; when every
- * enabled action of the state has finished, FINISHED fires). An action that
- * never finishes (Watch Button, everyFrame setters) simply always returns
- * false.
+ * interpreter allocates per action node: `stateSize` bytes, zero-initialized
+ * when the action is entered, passed back to every callback. onEnter/onExit
+ * may be null.
+ *
+ * onUpdate returns kFsmActionRunning while the action is still going, else the
+ * index of the OUTPUT PIN it finished on — which is how a branching action
+ * picks its successor (Compare Property returns 0 for true, 1 for false). A
+ * single-outcome action returns 0. An action with no onUpdate at all is an
+ * enter-only action: done on pin 0 the moment it runs.
+ *
+ * An action that never finishes (Watch Button, everyFrame setters) simply
+ * always returns kFsmActionRunning, which parks the flow on it.
  */
 struct FsmActionOps
 {
     size_t stateSize = 0;
     void (*onEnter)(const void* data, void* state, FsmContext& ctx) = nullptr;
-    bool (*onUpdate)(const void* data, void* state, FsmContext& ctx) = nullptr;
+    int (*onUpdate)(const void* data, void* state, FsmContext& ctx) = nullptr;
     void (*onExit)(const void* data, void* state, FsmContext& ctx) = nullptr;
 };
 

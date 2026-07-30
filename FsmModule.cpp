@@ -16,7 +16,7 @@
 #include "FsmActions.h"
 #include "reflection/ComponentRegistry.h"
 #include "reflection/ComponentFactory.h"
-#include "reflection/DekiNode.h"   // NodeFactory + NodeTypeRegistry (editor)
+#include "deki-nodegraph/DekiNode.h"   // NodeFactory + NodeTypeRegistry (editor)
 
 #ifdef DEKI_EDITOR
 
@@ -46,7 +46,7 @@ namespace
             [](void* p, PrefabFormat::PrefabMsgPackParser& parser, uint32_t mapSize) -> bool {
                 return DeserializeMsgPack(*static_cast<T*>(p), parser, mapSize); },
             [](void* p) { delete static_cast<T*>(p); });
-        NodeTypeRegistry::Instance().Register(&T::GetNodeMeta());
+        NodeTypeRegistry::Instance().Register(&T::GetNodeMeta(), sizeof(DekiNodeMeta));
     }
 }
 
@@ -64,11 +64,27 @@ DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
     RegisterFsmNodeType<FsmAwakeNode>();
     RegisterFsmNodeType<FsmUpdateNode>();
     RegisterFsmNodeType<FsmStateNode>();
+    RegisterFsmNodeType<FsmActionEntryNode>();
+    RegisterFsmNodeType<FsmGroupNode>();
+    RegisterFsmNodeType<FsmGroupInNode>();
+    RegisterFsmNodeType<FsmGroupExitNode>();
+    RegisterFsmNodeType<FsmVariablesNode>();
+    RegisterFsmNodeType<FsmNumberVariable>();
+    RegisterFsmNodeType<FsmBoolVariable>();
+    RegisterFsmNodeType<FsmTextVariable>();
     RegisterFsmNodeType<FsmWaitAction>();
     RegisterFsmNodeType<FsmSendEventAction>();
     RegisterFsmNodeType<FsmSetPropertyAction>();
     RegisterFsmNodeType<FsmComparePropertyAction>();
-    RegisterFsmNodeType<FsmMoveToAction>();
+    RegisterFsmNodeType<FsmModifyPropertyAction>();
+    RegisterFsmNodeType<FsmRandomPropertyAction>();
+    RegisterFsmNodeType<FsmTweenPropertyAction>();
+    RegisterFsmNodeType<FsmSpawnPrefabAction>();
+    RegisterFsmNodeType<FsmDestroyObjectAction>();
+    RegisterFsmNodeType<FsmSetParentAction>();
+    RegisterFsmNodeType<FsmPlayAnimationAction>();
+    RegisterFsmNodeType<FsmSendEventToAction>();
+    RegisterFsmNodeType<FsmLogAction>();
     RegisterFsmNodeType<FsmWatchButtonAction>();
     DekiFsm_RegisterEditorGraphDomain();
 }

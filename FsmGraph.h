@@ -1,6 +1,6 @@
 #pragma once
 
-#include "reflection/NodeGraphData.h"
+#include "deki-nodegraph/NodeGraphData.h"
 
 // A state-machine graph as a loadable asset. The .asset (JSON,
 // "type":"FsmGraph") is authored in the editor's Node Graph window and
