@@ -49,6 +49,32 @@ namespace
     const char* kFinishedEvent = "FINISHED";
 
     const std::string kEmptyName;
+
+    // Largest per-run state any action in this graph asks for, inner graphs
+    // included (a state's action flow, a group's contents, to any depth).
+    //
+    // Measured once so every track can hold ONE slot that fits whatever it ends
+    // up running. The alternative the interpreter used to carry - a slice per
+    // action of the state being entered, plus an offset table - sized itself to
+    // the SUM of a flow's actions when only one of them is ever live, and
+    // reallocated both vectors on every single state change.
+    size_t MaxActionState(const NodeGraphData::Graph& graph)
+    {
+        size_t maxSize = 0;
+        for (const auto& node : graph.nodes)
+        {
+            if (const FsmActionOps* ops = FsmActionRegistry::Instance().Find(node.typeId))
+                if (ops->stateSize > maxSize)
+                    maxSize = ops->stateSize;
+            if (node.inner)
+            {
+                const size_t inner = MaxActionState(*node.inner);
+                if (inner > maxSize)
+                    maxSize = inner;
+            }
+        }
+        return maxSize;
+    }
 }
 
 // ============================================================================
@@ -171,12 +197,14 @@ DekiObject* FsmComponent::ResolveTargetObject(const std::string& name)
 
 std::shared_ptr<bool> FsmComponent::EnsureClickWatch(const void* key, ButtonComponent* button)
 {
-    auto it = clickWatches_.find(key);
-    if (it != clickWatches_.end())
-        return it->second;
+    // Linear: a machine watches one or two buttons, and the search is shorter
+    // than hashing the key would be.
+    for (const ClickWatch& watch : clickWatches_)
+        if (watch.key == key)
+            return watch.flag;
 
     auto flag = std::make_shared<bool>(false);
-    clickWatches_[key] = flag;
+    clickWatches_.push_back({ key, flag });
     if (button)
         button->AddOnClickCallback([flag]() { *flag = true; });
     return flag;
@@ -195,6 +223,8 @@ void FsmComponent::ResetMachine()
     initialized_ = false;
     failed_ = false;
     eventQueue_.clear();
+    eventHead_ = 0;
+    maxActionState_ = 0;     // re-measured from the new graph on the next init
     clickWatches_.clear();   // callbacks on buttons keep their (now orphan) flags alive
     variables_.clear();      // re-declared from the new graph on the next init
 }
@@ -404,6 +434,10 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
     if (failed_)
         return;
 
+    // Then the size every track's action-state slot needs, before any track
+    // exists: EnterState runs an action the moment a track is created.
+    maxActionState_ = MaxActionState(g.Root());
+
     const uint32_t kLifecycleOrder[] = { kAwakeId, kStartId, kUpdateId };
     for (uint32_t entryTypeId : kLifecycleOrder)
     {
@@ -415,6 +449,8 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
             if (!first)
                 continue;   // unused hook
             tracks_.emplace_back();
+            // Allocated once, here: no state change after this ever resizes it.
+            tracks_.back().stateBuf.assign(maxActionState_, 0);
             EnterState(tracks_.back(), &g.Root(), first);
             if (failed_)
                 return;
@@ -457,19 +493,9 @@ void FsmComponent::EnterState(Track& track, const NodeGraphData::Graph* graph,
     track.actions = state->inner;
     track.finishedFired = false;
 
-    // One runtime-state slice per action node of the flow, indexed by the
-    // node's position in the graph. Nodes with no behavior (the Entry node)
-    // simply take zero bytes.
-    const size_t count = track.actions ? track.actions->nodes.size() : 0;
-    track.stateOffsets.assign(count, 0);
-    size_t blobSize = 0;
-    for (size_t i = 0; i < count; ++i)
-    {
-        track.stateOffsets[i] = blobSize;
-        if (const FsmActionOps* ops = FsmActionRegistry::Instance().Find(track.actions->nodes[i].typeId))
-            blobSize += ops->stateSize;
-    }
-    track.stateBlob.assign(blobSize, 0);
+    // The action-state slot needs nothing here: it was sized for the whole
+    // graph when the track was created, and BeginAction zeroes the part the
+    // incoming action uses.
 
     // Start at whatever the Entry node points at. No Entry, or nothing wired to
     // it, is an empty flow: the state does nothing and finishes immediately,
@@ -500,15 +526,26 @@ void FsmComponent::BeginAction(Track& track, const NodeGraphData::NodeInstance* 
         track.current = nullptr;
         return;
     }
+    // The slot is measured from the same registry this just read, so an action
+    // that does not fit means the two disagree - a graph reloaded against a
+    // rebuilt action library, say. Loud, not clamped: writing stateSize bytes
+    // into a shorter slot is the kind of corruption that surfaces somewhere
+    // else entirely.
+    if (ops->stateSize > track.stateBuf.size())
+    {
+        FailFsm("an action needs more run state than this machine measured "
+                "(graph and action library out of step; reload the graph)");
+        track.current = nullptr;
+        track.currentOps = nullptr;
+        return;
+    }
     track.currentOps = ops;
 
-    // Zero this action's slice on every entry, so looping back onto an action
-    // restarts it instead of resuming a half-finished run. Several actions keep
-    // no state at all, and for a flow made only of those the blob is empty.
-    const size_t index = static_cast<size_t>(node - track.actions->nodes.data());
-    uint8_t* const state = track.stateBlob.empty()
-                               ? nullptr
-                               : track.stateBlob.data() + track.stateOffsets[index];
+    // Zero on every entry, so looping back onto an action restarts it instead
+    // of resuming a half-finished run - and so the action that just left this
+    // slot cannot be read as this one's state. Several actions keep no state at
+    // all, and a graph made only of those has an empty slot.
+    uint8_t* const state = track.stateBuf.empty() ? nullptr : track.stateBuf.data();
     if (state && ops->stateSize > 0)
         std::memset(state, 0, ops->stateSize);
     if (ops->onEnter)
@@ -524,10 +561,8 @@ void FsmComponent::ExitState(Track& track)
     // they finished, the ones after it were never entered.
     if (track.current && track.currentOps && track.currentOps->onExit)
     {
-        const size_t index = static_cast<size_t>(track.current - track.actions->nodes.data());
-        uint8_t* const state = track.stateBlob.empty()
-                                   ? nullptr
-                                   : track.stateBlob.data() + track.stateOffsets[index];
+        // Still the running action's state: nothing has entered the slot since.
+        uint8_t* const state = track.stateBuf.empty() ? nullptr : track.stateBuf.data();
         FsmContext ctx{ GetOwner(), this, 0.0f };
         track.currentOps->onExit(track.current->instance, state, ctx);
     }
@@ -537,8 +572,10 @@ void FsmComponent::ExitState(Track& track)
     track.actions = nullptr;
     track.current = nullptr;
     track.currentOps = nullptr;
-    track.stateOffsets.clear();
-    track.stateBlob.clear();
+    // stateBuf is NOT released: it is the track's for the machine's life, and
+    // freeing it here would put an allocation on every transition - the churn
+    // this slot exists to remove. Its contents are stale, and BeginAction
+    // zeroes what the next action reads.
     track.finishedFired = false;
     // `groups` is deliberately NOT cleared: it is the track's position in the
     // grouping, maintained by ResolveFlowTarget as the flow enters and leaves.
@@ -548,10 +585,13 @@ void FsmComponent::ExitState(Track& track)
 // state lives in, which is the only place its transitions can be wired.
 void FsmComponent::ProcessEvents()
 {
-    while (!eventQueue_.empty() && !failed_)
+    while (eventHead_ < eventQueue_.size() && !failed_)
     {
-        const QueuedEvent ev = eventQueue_.front();
-        eventQueue_.erase(eventQueue_.begin());
+        // By value, and by index: entering a state runs its first action, which
+        // may raise events of its own, so the vector can grow (and move) inside
+        // this loop. The copy is what makes that safe, and the index is what
+        // keeps the drain from shifting every remaining entry down one.
+        const QueuedEvent ev = eventQueue_[eventHead_++];
 
         // Broadcast events are offered to every track (each may transition on
         // it independently); track-scoped events (FINISHED) only to their own.
@@ -606,11 +646,25 @@ void FsmComponent::ProcessEvents()
             // The state that raised this track's FINISHED is gone. Any
             // still-queued event scoped to this track belongs to it, not to
             // the state just entered, so it must not be delivered there.
-            eventQueue_.erase(std::remove_if(eventQueue_.begin(), eventQueue_.end(),
-                                             [t](const QueuedEvent& q)
-                                             { return q.track == static_cast<int>(t); }),
-                              eventQueue_.end());
+            //
+            // From the UNDRAINED part only: the entries before eventHead_ are
+            // already consumed, and erasing one would slide the pending ones
+            // down under the index this loop is reading with.
+            eventQueue_.erase(
+                std::remove_if(eventQueue_.begin() + static_cast<std::ptrdiff_t>(eventHead_),
+                               eventQueue_.end(),
+                               [t](const QueuedEvent& q)
+                               { return q.track == static_cast<int>(t); }),
+                eventQueue_.end());
         }
+    }
+
+    // Fully drained: rewind to the front, keeping the storage for next frame.
+    // (A latched failure leaves the rest where it is; ResetMachine clears both.)
+    if (eventHead_ >= eventQueue_.size())
+    {
+        eventQueue_.clear();
+        eventHead_ = 0;
     }
 }
 
@@ -633,11 +687,9 @@ void FsmComponent::RunActions()
         {
             const FsmActionOps* ops = track.currentOps;
             const NodeGraphData::NodeInstance* node = track.current;
-            const size_t index = static_cast<size_t>(node - track.actions->nodes.data());
-            void* const state = track.stateBlob.empty()
+            void* const state = track.stateBuf.empty()
                                     ? nullptr
-                                    : static_cast<void*>(track.stateBlob.data() +
-                                                         track.stateOffsets[index]);
+                                    : static_cast<void*>(track.stateBuf.data());
 
             // No onUpdate = an enter-only action: done on pin 0 the moment it ran.
             const int pin = ops->onUpdate ? ops->onUpdate(node->instance, state, ctx) : 0;

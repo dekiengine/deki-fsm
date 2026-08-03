@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 // Runs a state-machine graph asset (PlayMaker-style) on the object it sits on.
@@ -127,11 +126,17 @@ private:
         const NodeGraphData::NodeInstance* current = nullptr;
         const FsmActionOps* currentOps = nullptr;
 
-        // Per-run action state: one slice per node of `actions`, indexed by the
-        // node's position in that graph's node vector. Zeroed when an action is
-        // entered, so looping back onto one restarts it cleanly.
-        std::vector<size_t> stateOffsets;
-        std::vector<uint8_t> stateBlob;
+        // Per-run action state. ONE slot, not one slice per action: a track has
+        // exactly one running action at a time, and the handover is ordered so
+        // the outgoing action's onExit reads this before the incoming action's
+        // memset overwrites it. Sized once, to the largest stateSize in the
+        // whole graph, so a state change neither reallocates nor frees - which
+        // is what kept a transition-heavy machine churning the heap.
+        //
+        // A vector rather than an inline array on purpose: `tracks_` reallocates
+        // as tracks are added, and only a heap block keeps the address an action
+        // is handed stable across that.
+        std::vector<uint8_t> stateBuf;
         bool finishedFired = false;
     };
 
@@ -141,6 +146,17 @@ private:
     {
         std::string name;
         int track = -1;
+    };
+
+    // One Watch Button flag, keyed by the action data instance that asked for
+    // it. A vector and not a map: a machine has a handful of these at most, and
+    // a hash map costs an idle component bytes it never uses plus a bucket
+    // allocation the first time it does - before counting what instantiating
+    // one adds to the firmware image.
+    struct ClickWatch
+    {
+        const void* key = nullptr;
+        std::shared_ptr<bool> flag;
     };
 
     // One live variable of this machine. Storage is per component, so two
@@ -176,11 +192,16 @@ private:
     void EnterState(Track& track, const NodeGraphData::Graph* graph,
                     const NodeGraphData::NodeInstance* target);
     void ExitState(Track& track);
-    // Make `node` the running action: zero its state slice and call onEnter.
-    // A null node means the flow has run off its end.
+    // Make `node` the running action: zero the track's state slot and call
+    // onEnter. A null node means the flow has run off its end.
     void BeginAction(Track& track, const NodeGraphData::NodeInstance* node, FsmContext& ctx);
     void ProcessEvents();
     void RunActions();
+
+    // Largest FsmActionOps::stateSize among every action in the graph, found
+    // once at init. Every track's slot is this big, so entering a state costs
+    // no allocation whatever its actions are.
+    size_t maxActionState_ = 0;
 
     std::vector<Track> tracks_;
     bool initialized_ = false;            // tracks/stacks built for lastGraph_
@@ -188,8 +209,13 @@ private:
     bool failed_ = false;
     int transitionsThisFrame_ = 0;
 
+    // Drained by index, never erased from the front: processing an event can
+    // queue more (an action's onEnter raising one), and erase(begin()) would
+    // shift the rest down for every single event. Cleared once empty.
     std::vector<QueuedEvent> eventQueue_;
-    std::unordered_map<const void*, std::shared_ptr<bool>> clickWatches_;
+    size_t eventHead_ = 0;
+
+    std::vector<ClickWatch> clickWatches_;
 
     // Stable for the machine's life once built (actions cache pointers into it),
     // so this must never be reallocated while a graph is running — it is filled
