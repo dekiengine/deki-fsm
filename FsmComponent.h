@@ -79,7 +79,7 @@ public:
     // can enforce the same policy.
     void FailFsm(const char* message);
 
-    // "" = owner; else by object name within the owner's prefab. nullptr after
+    // "" = owner; else by object name within the owner's scene. nullptr after
     // latching failed (logged).
     DekiObject* ResolveTargetObject(const std::string& name);
 

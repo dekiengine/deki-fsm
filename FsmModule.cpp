@@ -40,10 +40,10 @@ namespace
     template<typename T>
     void RegisterFsmNodeType()
     {
-        PrefabFormat::NodeFactory::Instance().Register(
+        SceneFormat::NodeFactory::Instance().Register(
             DekiHashString(T::StaticNodeName),
             []() -> void* { return new T(); },
-            [](void* p, PrefabFormat::PrefabMsgPackParser& parser, uint32_t mapSize) -> bool {
+            [](void* p, SceneFormat::SceneMsgPackParser& parser, uint32_t mapSize) -> bool {
                 return DeserializeMsgPack(*static_cast<T*>(p), parser, mapSize); },
             [](void* p) { delete static_cast<T*>(p); });
         NodeTypeRegistry::Instance().Register(&T::GetNodeMeta(), sizeof(DekiNodeMeta));
@@ -79,7 +79,7 @@ DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
     RegisterFsmNodeType<FsmModifyPropertyAction>();
     RegisterFsmNodeType<FsmRandomPropertyAction>();
     RegisterFsmNodeType<FsmTweenPropertyAction>();
-    RegisterFsmNodeType<FsmSpawnPrefabAction>();
+    RegisterFsmNodeType<FsmSpawnSceneAction>();
     RegisterFsmNodeType<FsmDestroyObjectAction>();
     RegisterFsmNodeType<FsmSetParentAction>();
     RegisterFsmNodeType<FsmPlayAnimationAction>();
@@ -164,7 +164,7 @@ DEKI_PLUGIN_API void DekiPlugin_RegisterComponents(void)
 DEKI_PLUGIN_API void DekiPlugin_OnPlayModeStop(void)
 {
     // Machine state lives per FsmComponent instance; instances die with the
-    // play-mode prefab, so there is nothing global to reset here.
+    // play-mode scene, so there is nothing global to reset here.
 }
 
 // deki-fsm renders no editor UI of its own, so it links no ImGui and shares no

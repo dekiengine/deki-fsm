@@ -5,7 +5,7 @@
 
 #include "DekiLogSystem.h"
 #include "DekiTime.h"
-#include "Prefab.h"
+#include "Scene.h"
 
 #include <algorithm>
 #include <cstring>
@@ -180,9 +180,9 @@ DekiObject* FsmComponent::ResolveTargetObject(const std::string& name)
     if (name.empty())
         return owner;
 
-    if (owner && owner->GetOwnerPrefab())
+    if (owner && owner->GetOwnerScene())
     {
-        for (DekiObject* obj : owner->GetOwnerPrefab()->GetObjects())
+        for (DekiObject* obj : owner->GetOwnerScene()->GetObjects())
         {
             if (obj && obj->GetName() == name)
                 return obj;
@@ -190,7 +190,7 @@ DekiObject* FsmComponent::ResolveTargetObject(const std::string& name)
     }
 
     char buf[192];
-    std::snprintf(buf, sizeof(buf), "target object '%s' not found in prefab", name.c_str());
+    std::snprintf(buf, sizeof(buf), "target object '%s' not found in scene", name.c_str());
     FailFsm(buf);
     return nullptr;
 }

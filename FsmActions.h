@@ -4,8 +4,8 @@
 
 #include "deki-nodegraph/DekiNode.h"
 #include "reflection/PropertyRef.h"   // PropertyRef (picked component field)
-#include "assets/AssetRef.h"          // AssetRef<Prefab> (Spawn Prefab)
-#include "Prefab.h"                   // Prefab::AssetTypeName
+#include "assets/AssetRef.h"          // AssetRef<Scene> (Spawn Scene)
+#include "Scene.h"                   // Scene::AssetTypeName
 #include "deki-tween/Easing.h"        // deki::EaseType (Tween Property easing)
 
 // The action library: the data side. Each action is a plain reflected struct in
@@ -37,11 +37,11 @@
 // state (only an event moves a track from one state to another).
 //
 // Object targeting convention: `targetObject` empty = the FSM's owner object,
-// else the name of an object in the same prefab. A name that resolves to
+// else the name of an object in the same scene. A name that resolves to
 // nothing is a graph error at runtime (no fallback). DEKI_OBJECT_NAME gives
-// those fields the editor's object picker (browse the open prefab's hierarchy
+// those fields the editor's object picker (browse the open scene's hierarchy
 // instead of typing the name); the stored value stays the plain name, so one
-// graph still drives every prefab that uses the same object names.
+// graph still drives every scene that uses the same object names.
 
 // Comparison operator for Compare Property.
 enum class FsmCompareOp : uint8_t
@@ -188,29 +188,29 @@ public:
     DEKI_EXPORT bool wholeNumbers = false;
 };
 
-// Instantiate a prefab into the running prefab, at (x, y) meters — relative to
+// Instantiate a scene into the running scene, at (x, y) meters — relative to
 // the spawner's position when `relative` is on. `spawnedName` renames the new
 // root so later actions (and other states) can find it by name; empty keeps the
-// prefab's own name.
+// scene's own name.
 //
-// NOTE: the graph window has no asset picker yet, so `prefab` is authored as a
+// NOTE: the graph window has no asset picker yet, so `scene` is authored as a
 // GUID string there (the value round-trips and loads correctly either way).
-struct FsmSpawnPrefabAction
+struct FsmSpawnSceneAction
 {
-    DEKI_NODE(FsmSpawnPrefabAction, "FsmSpawnPrefab", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Spawn Prefab";
-    static constexpr const char* StaticNodeDescription = "Instantiate a prefab into the running scene.";
+    DEKI_NODE(FsmSpawnSceneAction, "FsmSpawnScene", "Fsm/Actions")
+    static constexpr const char* StaticNodeDisplayName = "Spawn Scene";
+    static constexpr const char* StaticNodeDescription = "Instantiate a scene into the running scene.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
-    DEKI_EXPORT Deki::AssetRef<Prefab> prefab;
+    DEKI_EXPORT Deki::AssetRef<Scene> scene;
     DEKI_EXPORT DEKI_UNIT(Distance) float x = 0.0f;
     DEKI_EXPORT DEKI_UNIT(Distance) float y = 0.0f;
     DEKI_EXPORT bool relative = false;
     DEKI_EXPORT std::string spawnedName;
 };
 
-// Remove an object (and its children) from the running prefab. An empty
+// Remove an object (and its children) from the running scene. An empty
 // targetObject destroys the object this FSM is on, which also stops the machine
 // — put it at the end of a flow.
 struct FsmDestroyObjectAction
@@ -224,7 +224,7 @@ public:
     DEKI_EXPORT DEKI_OBJECT_NAME() std::string targetObject;
 };
 
-// Reparent an object. An empty newParent moves it to the prefab root, which is
+// Reparent an object. An empty newParent moves it to the scene root, which is
 // how you detach a picked-up item from the hand that carried it.
 struct FsmSetParentAction
 {
@@ -310,7 +310,7 @@ public:
 #include "generated/FsmModifyPropertyAction.gen.h"
 #include "generated/FsmRandomPropertyAction.gen.h"
 #include "generated/FsmTweenPropertyAction.gen.h"
-#include "generated/FsmSpawnPrefabAction.gen.h"
+#include "generated/FsmSpawnSceneAction.gen.h"
 #include "generated/FsmDestroyObjectAction.gen.h"
 #include "generated/FsmSetParentAction.gen.h"
 #include "generated/FsmPlayAnimationAction.gen.h"

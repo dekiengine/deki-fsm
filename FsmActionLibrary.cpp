@@ -28,7 +28,7 @@
 #include "DekiComponent.h"   // DekiHashString
 #include "DekiObject.h"
 #include "DekiLogSystem.h"
-#include "Prefab.h"                   // Instantiate / RemoveObject
+#include "Scene.h"                   // Instantiate / RemoveObject
 #include "reflection/PropertyRef.h"   // BindPropertyRef / Write / Compare
 
 #include <cmath>
@@ -425,25 +425,25 @@ int Random_Update(const void* data, void* state, FsmContext& /*ctx*/)
 const FsmActionOps kRandomOps = { sizeof(BoundState), &Random_Enter, &Random_Update, nullptr };
 
 // ---------------------------------------------------------------------------
-// Spawn Prefab
+// Spawn Scene
 // ---------------------------------------------------------------------------
 
 int Spawn_Update(const void* data, void* /*state*/, FsmContext& ctx)
 {
-    const auto* d = static_cast<const FsmSpawnPrefabAction*>(data);
+    const auto* d = static_cast<const FsmSpawnSceneAction*>(data);
 
-    Prefab* source = const_cast<Deki::AssetRef<Prefab>&>(d->prefab).Get();
+    Scene* source = const_cast<Deki::AssetRef<Scene>&>(d->scene).Get();
     if (!source)
     {
-        ctx.Fail("Spawn Prefab: no prefab assigned (or it failed to load)");
+        ctx.Fail("Spawn Scene: no scene assigned (or it failed to load)");
         return kDone;
     }
 
     DekiObject* owner = ctx.owner;
-    Prefab* into = owner ? owner->GetOwnerPrefab() : nullptr;
+    Scene* into = owner ? owner->GetOwnerScene() : nullptr;
     if (!into)
     {
-        ctx.Fail("Spawn Prefab: the FSM's object is not in a running prefab");
+        ctx.Fail("Spawn Scene: the FSM's object is not in a running scene");
         return kDone;
     }
 
@@ -458,7 +458,7 @@ int Spawn_Update(const void* data, void* /*state*/, FsmContext& ctx)
     DekiObject* spawned = source->Instantiate(into, px, py);
     if (!spawned)
     {
-        ctx.Fail("Spawn Prefab: instantiate failed");
+        ctx.Fail("Spawn Scene: instantiate failed");
         return kDone;
     }
     if (!d->spawnedName.empty())
@@ -480,10 +480,10 @@ int Destroy_Update(const void* data, void* /*state*/, FsmContext& ctx)
     if (!target)
         return kDone;   // FSM latched
 
-    Prefab* owner = target->GetOwnerPrefab();
+    Scene* owner = target->GetOwnerScene();
     if (!owner)
     {
-        ctx.Fail("Destroy Object: the target is not in a running prefab");
+        ctx.Fail("Destroy Object: the target is not in a running scene");
         return kDone;
     }
     owner->RemoveObject(target);
@@ -504,7 +504,7 @@ int SetParent_Update(const void* data, void* /*state*/, FsmContext& ctx)
     if (!target)
         return kDone;   // FSM latched
 
-    // An empty new parent means the prefab root, so it is resolved separately
+    // An empty new parent means the scene root, so it is resolved separately
     // from ResolveTarget (where empty means "the FSM's own object").
     DekiObject* parent = nullptr;
     if (!d->newParent.empty())
@@ -674,7 +674,7 @@ REGISTER_FSM_ACTION(FsmComparePropertyAction, kCompareOps);
 REGISTER_FSM_ACTION(FsmModifyPropertyAction, kModifyOps);
 REGISTER_FSM_ACTION(FsmRandomPropertyAction, kRandomOps);
 REGISTER_FSM_ACTION(FsmTweenPropertyAction, kTweenOps);
-REGISTER_FSM_ACTION(FsmSpawnPrefabAction, kSpawnOps);
+REGISTER_FSM_ACTION(FsmSpawnSceneAction, kSpawnOps);
 REGISTER_FSM_ACTION(FsmDestroyObjectAction, kDestroyOps);
 REGISTER_FSM_ACTION(FsmSetParentAction, kSetParentOps);
 REGISTER_FSM_ACTION(FsmPlayAnimationAction, kPlayAnimOps);

@@ -22,7 +22,7 @@ struct FsmContext
     // transitions after the action pass).
     void SendEvent(const std::string& name);
 
-    // "" = owner; else an object of the owner's prefab by name. Returns
+    // "" = owner; else an object of the owner's scene by name. Returns
     // nullptr AFTER latching the FSM failed (logged) — callers just bail.
     DekiObject* ResolveTarget(const std::string& name);
 

@@ -84,9 +84,9 @@ error. Custom events broadcast to every track; `FINISHED` is per-track.
 | **Random Property** | Write a random number into any numeric target; `wholeNumbers` for die rolls. | done |
 | **Compare Property** | The `if` of the graph: branch on any component's live data. `waitUntilTrue` turns it into a gate that parks until the comparison holds. | true, false |
 | **Tween Property** | Ease any float or Vector2 target to a value over time, with easing. Movement, spin, scale, fade. | done |
-| **Spawn Prefab** | Instantiate a prefab at a position, optionally renaming the new root so later actions can find it. | done |
-| **Destroy Object** | Remove an object and its children from the running prefab. | done |
-| **Set Parent** | Reparent an object; an empty parent moves it to the prefab root. | done |
+| **Spawn Scene** | Instantiate a scene at a position, optionally renaming the new root so later actions can find it. | done |
+| **Destroy Object** | Remove an object and its children from the running scene. | done |
+| **Set Parent** | Reparent an object; an empty parent moves it to the scene root. | done |
 | **Play Animation** | Pick a sequence on an `AnimationComponent` and play it, optionally waiting for it to finish. | done |
 | **Watch Button** | Park until the button is clicked. The input-to-transition bridge: wire `clicked` to a Send Event. | clicked |
 | **Log** | Write a line to the console. Print-debugging for graphs. | done |
