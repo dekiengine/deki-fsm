@@ -117,26 +117,26 @@ void FsmComponent::Update()
         lastGraph_ = g;
         ResetMachine();
     }
-    if (failed_)
+    if (m_Failed)
         return;
 
     transitionsThisFrame_ = 0;
 
-    if (!initialized_)
+    if (!m_Initialized)
     {
         InitializeMachine(*g->data);
-        if (failed_)
+        if (m_Failed)
             return;
     }
 
     // Events queued between frames (external SendEvent callers, click
     // callbacks, events raised during initialization by Awake actions).
     ProcessEvents();
-    if (failed_)
+    if (m_Failed)
         return;
 
     RunActions();
-    if (failed_)
+    if (m_Failed)
         return;
 
     // Events raised by this frame's actions (including per-track FINISHED).
@@ -159,19 +159,19 @@ void FsmComponent::SendEvent(const std::string& name)
 
 const std::string& FsmComponent::ActiveStateName() const
 {
-    if (!tracks_.empty() && tracks_[0].active && tracks_[0].active->typeId == kStateId)
-        return static_cast<const FsmStateNode*>(tracks_[0].active->instance)->name;
+    if (!m_Tracks.empty() && m_Tracks[0].active && m_Tracks[0].active->typeId == kStateId)
+        return static_cast<const FsmStateNode*>(m_Tracks[0].active->instance)->name;
     return kEmptyName;
 }
 
 void FsmComponent::FailFsm(const char* message)
 {
-    if (failed_)
+    if (m_Failed)
         return;   // one error per latch
     DEKI_LOG_ERROR("FsmComponent (%s): %s — machine stopped",
                    GetOwner() ? GetOwner()->GetName().c_str() : "?",
                    message ? message : "unknown error");
-    failed_ = true;
+    m_Failed = true;
 }
 
 DekiObject* FsmComponent::ResolveTargetObject(const std::string& name)
@@ -219,19 +219,19 @@ void FsmComponent::ResetMachine()
     // Hard drop, deliberately WITHOUT running onExit: this path fires when the
     // graph asset was reloaded or reassigned, so track state may point into
     // freed NodeGraphData — touching it would be use-after-free.
-    tracks_.clear();
-    initialized_ = false;
-    failed_ = false;
+    m_Tracks.clear();
+    m_Initialized = false;
+    m_Failed = false;
     eventQueue_.clear();
     eventHead_ = 0;
     maxActionState_ = 0;     // re-measured from the new graph on the next init
     clickWatches_.clear();   // callbacks on buttons keep their (now orphan) flags alive
-    variables_.clear();      // re-declared from the new graph on the next init
+    m_Variables.clear();      // re-declared from the new graph on the next init
 }
 
 void FsmComponent::InitializeVariables(const NodeGraphData& g)
 {
-    variables_.clear();
+    m_Variables.clear();
 
     // The declarations live in the child stack of the Variables node. Matched by
     // type id and cast to the concrete struct: reflection metadata does not
@@ -241,7 +241,7 @@ void FsmComponent::InitializeVariables(const NodeGraphData& g)
         if (node.typeId != kVariablesId)
             continue;
 
-        variables_.reserve(variables_.size() + node.children.size());
+        m_Variables.reserve(m_Variables.size() + node.children.size());
         for (const auto& child : node.children)
         {
             if (!child.enabled || !child.instance)
@@ -280,14 +280,14 @@ void FsmComponent::InitializeVariables(const NodeGraphData& g)
                 FailFsm("a variable declaration has an empty name");
                 return;
             }
-            variables_.push_back(std::move(var));
+            m_Variables.push_back(std::move(var));
         }
     }
 }
 
 bool FsmComponent::BindVariable(const PropertyRef& ref, PropertyBinding& out)
 {
-    for (Variable& var : variables_)
+    for (Variable& var : m_Variables)
     {
         if (var.nameHash != ref.fieldHash)
             continue;
@@ -426,12 +426,12 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
     // unwired output is an unused hook — same as a lifecycle method you
     // didn't override — never an error. A machine where NOTHING is wired,
     // however, has nothing to run at all: that one is loud.
-    initialized_ = true;
+    m_Initialized = true;
 
     // Variables first: an Awake-track action may bind one on its very first
     // frame, and their storage must never move afterwards.
     InitializeVariables(g);
-    if (failed_)
+    if (m_Failed)
         return;
 
     // Then the size every track's action-state slot needs, before any track
@@ -448,16 +448,16 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
             const NodeGraphData::NodeInstance* first = g.Root().Next(node.id, 0);
             if (!first)
                 continue;   // unused hook
-            tracks_.emplace_back();
+            m_Tracks.emplace_back();
             // Allocated once, here: no state change after this ever resizes it.
-            tracks_.back().stateBuf.assign(maxActionState_, 0);
-            EnterState(tracks_.back(), &g.Root(), first);
-            if (failed_)
+            m_Tracks.back().stateBuf.assign(maxActionState_, 0);
+            EnterState(m_Tracks.back(), &g.Root(), first);
+            if (m_Failed)
                 return;
         }
     }
 
-    if (tracks_.empty())
+    if (m_Tracks.empty())
         FailFsm("graph has nothing to run: no lifecycle output (Awake/Start/Update) is wired");
 }
 
@@ -585,7 +585,7 @@ void FsmComponent::ExitState(Track& track)
 // state lives in, which is the only place its transitions can be wired.
 void FsmComponent::ProcessEvents()
 {
-    while (eventHead_ < eventQueue_.size() && !failed_)
+    while (eventHead_ < eventQueue_.size() && !m_Failed)
     {
         // By value, and by index: entering a state runs its first action, which
         // may raise events of its own, so the vector can grow (and move) inside
@@ -595,12 +595,12 @@ void FsmComponent::ProcessEvents()
 
         // Broadcast events are offered to every track (each may transition on
         // it independently); track-scoped events (FINISHED) only to their own.
-        for (size_t t = 0; t < tracks_.size() && !failed_; ++t)
+        for (size_t t = 0; t < m_Tracks.size() && !m_Failed; ++t)
         {
             if (ev.track >= 0 && static_cast<int>(t) != ev.track)
                 continue;
 
-            Track& track = tracks_[t];
+            Track& track = m_Tracks[t];
             if (!track.active)
                 continue;
 
@@ -676,9 +676,9 @@ void FsmComponent::RunActions()
     // Every track runs the ONE action its active state is currently on, and
     // follows the wires for as long as actions keep finishing this frame.
     // Each track has its own FINISHED.
-    for (size_t t = 0; t < tracks_.size(); ++t)
+    for (size_t t = 0; t < m_Tracks.size(); ++t)
     {
-        Track& track = tracks_[t];
+        Track& track = m_Tracks[t];
         if (!track.active)
             continue;
 
@@ -693,19 +693,19 @@ void FsmComponent::RunActions()
 
             // No onUpdate = an enter-only action: done on pin 0 the moment it ran.
             const int pin = ops->onUpdate ? ops->onUpdate(node->instance, state, ctx) : 0;
-            if (failed_)
+            if (m_Failed)
                 return;
             if (pin == kFsmActionRunning)
                 break;   // still running: nothing downstream runs
 
             if (ops->onExit)
                 ops->onExit(node->instance, state, ctx);
-            if (failed_)
+            if (m_Failed)
                 return;
 
             // An unwired pin ends the flow, which is what raises FINISHED.
             BeginAction(track, track.actions->Next(node->id, pin), ctx);
-            if (failed_)
+            if (m_Failed)
                 return;
 
             if (++steps > kMaxActionStepsPerFrame)

@@ -68,7 +68,7 @@ public:
     // transitions during Update.
     void SendEvent(const std::string& name);
 
-    bool Failed() const { return failed_; }
+    bool Failed() const { return m_Failed; }
 
     // The first track's authored state name ("" while none) — debug/UI readout.
     const std::string& ActiveStateName() const;
@@ -133,7 +133,7 @@ private:
         // whole graph, so a state change neither reallocates nor frees - which
         // is what kept a transition-heavy machine churning the heap.
         //
-        // A vector rather than an inline array on purpose: `tracks_` reallocates
+        // A vector rather than an inline array on purpose: `m_Tracks` reallocates
         // as tracks are added, and only a heap block keeps the address an action
         // is handed stable across that.
         std::vector<uint8_t> stateBuf;
@@ -203,10 +203,10 @@ private:
     // no allocation whatever its actions are.
     size_t maxActionState_ = 0;
 
-    std::vector<Track> tracks_;
-    bool initialized_ = false;            // tracks/stacks built for lastGraph_
+    std::vector<Track> m_Tracks;
+    bool m_Initialized = false;            // tracks/stacks built for lastGraph_
     FsmGraph* lastGraph_ = nullptr;       // detect asset reload/reassign
-    bool failed_ = false;
+    bool m_Failed = false;
     int transitionsThisFrame_ = 0;
 
     // Drained by index, never erased from the front: processing an event can
@@ -220,7 +220,7 @@ private:
     // Stable for the machine's life once built (actions cache pointers into it),
     // so this must never be reallocated while a graph is running — it is filled
     // once in InitializeVariables and only cleared by ResetMachine.
-    std::vector<Variable> variables_;
+    std::vector<Variable> m_Variables;
 };
 
 #include "generated/FsmComponent.gen.h"
