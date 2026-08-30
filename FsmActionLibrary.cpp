@@ -12,7 +12,7 @@
  * onUpdate is a store, a compare or a bool read. Nothing here touches a string
  * once a state is running.
  *
- * Failure policy is the module's: anything unresolvable (object name, missing
+ * Failure policy is the package's: anything unresolvable (object name, missing
  * component/field, unparsable value) calls ctx.Fail once and the machine
  * latches off. No fallbacks.
  */

@@ -91,8 +91,8 @@ error. Custom events broadcast to every track; `FINISHED` is per-track.
 | **Watch Button** | Park until the button is clicked. The input-to-transition bridge: wire `clicked` to a Send Event. | clicked |
 | **Log** | Write a line to the console. Print-debugging for graphs. | done |
 
-Not covered yet: audio (the audio module only exposes raw PCM, with no sound
-asset type to point an action at) and physics (there is no physics module).
+Not covered yet: audio (the audio package only exposes raw PCM, with no sound
+asset type to point an action at) and physics (there is no physics package).
 
 ## Variables
 

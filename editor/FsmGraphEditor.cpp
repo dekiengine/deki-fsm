@@ -73,7 +73,7 @@ REGISTER_NODE_GRAPH_DOMAIN(g_FsmDomain,
 // Re-registration hook for plugin-only hot reload: the editor wipes the domain
 // registry while this DLL stays loaded, so the static registrar above never
 // reruns. Registry Register() dedupes, so calling this repeatedly is safe.
-// Invoked from DekiFsm_RegisterGraphTypes (FsmModule.cpp).
+// Invoked from DekiFsm_RegisterGraphTypes (FsmPackage.cpp).
 extern "C" void DekiFsm_RegisterEditorGraphDomain(void)
 {
     NodeGraphDomainRegistry::Instance().Register(&g_FsmDomain);

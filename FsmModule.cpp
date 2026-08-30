@@ -1,6 +1,6 @@
 /**
- * @file FsmModule.cpp
- * @brief Module entry point for deki-fsm DLL.
+ * @file FsmPackage.cpp
+ * @brief Package entry point for deki-fsm DLL.
  *
  * Exports the standard Deki plugin interface so the editor can load
  * deki-fsm.dll and register its components (FsmComponent). For linked DLLs
@@ -9,8 +9,8 @@
  */
 
 #include "interop/DekiPlugin.h"
-#include "DekiModuleFeatureMeta.h"
-#include "FsmModule.h"
+#include "DekiPackageFeatureMeta.h"
+#include "FsmPackage.h"
 #include "FsmComponent.h"
 #include "FsmNodes.h"
 #include "FsmActions.h"
@@ -35,7 +35,7 @@ namespace
     // Re-runnable mirror of the generated REGISTER_RUNTIME_NODE/REGISTER_NODE
     // static registrars. Those run once at DLL load; the editor's plugin-only
     // hot reload wipes the shared node registries WITHOUT unloading this
-    // module, so registration must be repeatable on demand. NodeFactory
+    // package, so registration must be repeatable on demand. NodeFactory
     // overwrites by typeId and NodeTypeRegistry dedupes, so this is idempotent.
     template<typename T>
     void RegisterFsmNodeType()
@@ -53,8 +53,8 @@ namespace
 extern "C" {
 
 /**
- * @brief (Re-)register this module's node graph types: state/action node
- * factories, editor metas, and the Fsm graph domain. Called at module load via
+ * @brief (Re-)register this package's node graph types: state/action node
+ * factories, editor metas, and the Fsm graph domain. Called at package load via
  * DekiPlugin_RegisterComponents and again after any registry wipe that keeps
  * this DLL loaded (plugin-only hot reload).
  */
@@ -90,8 +90,8 @@ DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
 }
 
 /**
- * @brief Ensure deki-fsm module is loaded and components are registered.
- * @return Number of components registered by this module
+ * @brief Ensure deki-fsm package is loaded and components are registered.
+ * @return Number of components registered by this package
  */
 DEKI_FSM_API int DekiFsm_EnsureRegistered(void)
 {
@@ -114,13 +114,13 @@ extern "C" {
 
 DEKI_PLUGIN_API const char* DekiPlugin_GetName(void)
 {
-    return "Deki FSM Module";
+    return "Deki FSM Package";
 }
 
 DEKI_PLUGIN_API const char* DekiPlugin_GetVersion(void)
 {
-#ifdef DEKI_MODULE_VERSION
-    return DEKI_MODULE_VERSION;
+#ifdef DEKI_PACKAGE_VERSION
+    return DEKI_PACKAGE_VERSION;
 #else
     return "0.0.0-dev";
 #endif
@@ -172,12 +172,12 @@ DEKI_PLUGIN_API void DekiPlugin_OnPlayModeStop(void)
 // generic Node Graph window.
 
 // =============================================================================
-// Module Feature API
+// Package Feature API
 // =============================================================================
 
 static const char* s_FsmGuids[] = { FsmComponent::StaticGuid };
 
-static const DekiModuleFeatureInfo s_Features[] = {
+static const DekiPackageFeatureInfo s_Features[] = {
     {"fsm", "FSM", "PlayMaker-style state machines with action stacks", true, "DEKI_FEATURE_FSM", s_FsmGuids, 1},
 };
 
@@ -186,7 +186,7 @@ DEKI_PLUGIN_API int DekiPlugin_GetFeatureCount(void)
     return sizeof(s_Features) / sizeof(s_Features[0]);
 }
 
-DEKI_PLUGIN_API const DekiModuleFeatureInfo* DekiPlugin_GetFeature(int index)
+DEKI_PLUGIN_API const DekiPackageFeatureInfo* DekiPlugin_GetFeature(int index)
 {
     if (index < 0 || index >= DekiPlugin_GetFeatureCount())
         return nullptr;
@@ -194,7 +194,7 @@ DEKI_PLUGIN_API const DekiModuleFeatureInfo* DekiPlugin_GetFeature(int index)
 }
 
 // =============================================================================
-// Module-specific feature API (for linked DLL access without name conflicts)
+// Package-specific feature API (for linked DLL access without name conflicts)
 // =============================================================================
 
 DEKI_FSM_API const char* DekiFsm_GetName(void)
@@ -207,7 +207,7 @@ DEKI_FSM_API int DekiFsm_GetFeatureCount(void)
     return DekiPlugin_GetFeatureCount();
 }
 
-DEKI_FSM_API const DekiModuleFeatureInfo* DekiFsm_GetFeature(int index)
+DEKI_FSM_API const DekiPackageFeatureInfo* DekiFsm_GetFeature(int index)
 {
     return DekiPlugin_GetFeature(index);
 }

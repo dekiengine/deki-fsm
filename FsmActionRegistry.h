@@ -67,7 +67,7 @@ struct FsmActionOps
  * The data structs self-register into NodeFactory via their generated code;
  * this registry carries the behavior half. Cleared implicitly on DLL unload
  * (static storage) — entries and the graphs referencing them live and die
- * with the same module/plugin DLLs.
+ * with the same package/plugin DLLs.
  */
 class DEKI_FSM_API FsmActionRegistry
 {
