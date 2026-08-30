@@ -544,9 +544,9 @@ void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
         return;
     }
 
-    anim->current_sequence = d->sequence;
-    anim->play_once_override = !d->loop;
-    anim->has_finished = false;
+    anim->currentSequence = d->sequence;
+    anim->playOnceOverride = !d->loop;
+    anim->hasFinished = false;
     anim->Play(/*restart_if_playing*/ true);
     s->anim = anim;
 }
@@ -559,7 +559,7 @@ int PlayAnim_Update(const void* data, void* state, FsmContext& /*ctx*/)
         return kDone;   // FSM latched in onEnter
     if (!d->waitForFinish)
         return kDone;   // fire and forget: the animation keeps running
-    return (s->anim->has_finished || !s->anim->is_playing) ? kDone : kFsmActionRunning;
+    return (s->anim->hasFinished || !s->anim->isPlaying) ? kDone : kFsmActionRunning;
 }
 
 const FsmActionOps kPlayAnimOps = { sizeof(PlayAnimState), &PlayAnim_Enter, &PlayAnim_Update, nullptr };
