@@ -6,7 +6,7 @@
 #include "reflection/PropertyRef.h"   // PropertyRef (picked component field)
 #include "assets/AssetRef.h"          // AssetRef<Scene> (Spawn Scene)
 #include "Scene.h"                   // Scene::AssetTypeName
-#include "deki-tween/Easing.h"        // deki::EaseType (Tween Property easing)
+#include "deki-tween/Easing.h"        // Deki::EaseType (Tween Property easing)
 
 // The action library: the data side. Each action is a plain reflected struct in
 // category "Fsm/Actions" — FsmStateNode's SUBGRAPH category, so these are
@@ -149,7 +149,7 @@ public:
     DEKI_EXPORT PropertyRef target;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string to;
     DEKI_EXPORT float duration = 1.0f;
-    DEKI_EXPORT deki::EaseType ease = deki::EaseType::Linear;
+    DEKI_EXPORT Deki::EaseType ease = Deki::EaseType::Linear;
     DEKI_EXPORT bool relative = false;
 };
 

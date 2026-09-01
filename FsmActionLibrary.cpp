@@ -288,7 +288,7 @@ int Tween_Update(const void* data, void* state, FsmContext& ctx)
     s->elapsed += ctx.dt;
     float u = d->duration > 0.0f ? s->elapsed / d->duration : 1.0f;
     if (u > 1.0f) u = 1.0f;
-    const float e = deki::Ease::GetFunction(d->ease)(u);
+    const float e = Deki::Ease::GetFunction(d->ease)(u);
 
     WriteBoundNumbers(s->binding,
                       s->start  + (end  - s->start)  * e,

@@ -9,7 +9,6 @@
  */
 
 #include "interop/DekiPlugin.h"
-#include "DekiPackageFeatureMeta.h"
 #include "FsmPackage.h"
 #include "FsmComponent.h"
 #include "FsmNodes.h"
@@ -126,12 +125,6 @@ DEKI_PLUGIN_API const char* DekiPlugin_GetVersion(void)
 #endif
 }
 
-DEKI_PLUGIN_API const char* DekiPlugin_GetReflectionJson(void)
-{
-    // Not used - we use component metadata instead
-    return "{}";
-}
-
 DEKI_PLUGIN_API int DekiPlugin_Init(void)
 {
     return 0;
@@ -172,44 +165,12 @@ DEKI_PLUGIN_API void DekiPlugin_OnPlayModeStop(void)
 // generic Node Graph window.
 
 // =============================================================================
-// Package Feature API
-// =============================================================================
-
-static const char* s_FsmGuids[] = { FsmComponent::StaticGuid };
-
-static const DekiPackageFeatureInfo s_Features[] = {
-    {"fsm", "FSM", "PlayMaker-style state machines with action stacks", true, "DEKI_FEATURE_FSM", s_FsmGuids, 1},
-};
-
-DEKI_PLUGIN_API int DekiPlugin_GetFeatureCount(void)
-{
-    return sizeof(s_Features) / sizeof(s_Features[0]);
-}
-
-DEKI_PLUGIN_API const DekiPackageFeatureInfo* DekiPlugin_GetFeature(int index)
-{
-    if (index < 0 || index >= DekiPlugin_GetFeatureCount())
-        return nullptr;
-    return &s_Features[index];
-}
-
-// =============================================================================
 // Package-specific feature API (for linked DLL access without name conflicts)
 // =============================================================================
 
 DEKI_FSM_API const char* DekiFsm_GetName(void)
 {
     return "FSM";
-}
-
-DEKI_FSM_API int DekiFsm_GetFeatureCount(void)
-{
-    return DekiPlugin_GetFeatureCount();
-}
-
-DEKI_FSM_API const DekiPackageFeatureInfo* DekiFsm_GetFeature(int index)
-{
-    return DekiPlugin_GetFeature(index);
 }
 
 } // extern "C"
