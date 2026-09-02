@@ -1,4 +1,5 @@
 #include "FsmComponent.h"
+#include <utility>
 #include "FsmNodes.h"
 
 #include "deki-2d/ButtonComponent.h"
@@ -180,13 +181,12 @@ DekiObject* FsmComponent::ResolveTargetObject(const std::string& name)
     if (name.empty())
         return owner;
 
+    // Anywhere in the scene tree. This walked only the root list, which in a
+    // single-root scene holds nothing but Root.
     if (owner && owner->GetOwnerScene())
     {
-        for (DekiObject* obj : owner->GetOwnerScene()->GetObjects())
-        {
-            if (obj && obj->GetName() == name)
-                return obj;
-        }
+        if (DekiObject* found = owner->GetOwnerScene()->FindDekiObject(name))
+            return found;
     }
 
     char buf[192];
@@ -591,7 +591,9 @@ void FsmComponent::ProcessEvents()
         // may raise events of its own, so the vector can grow (and move) inside
         // this loop. The copy is what makes that safe, and the index is what
         // keeps the drain from shifting every remaining entry down one.
-        const QueuedEvent ev = eventQueue_[eventHead_++];
+        // Moved out, not copied: the slot is never read again once the head
+        // has passed it, and a copy allocated for any name over 15 chars.
+        const QueuedEvent ev = std::move(eventQueue_[eventHead_++]);
 
         // Broadcast events are offered to every track (each may transition on
         // it independently); track-scoped events (FINISHED) only to their own.
