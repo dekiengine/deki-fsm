@@ -113,15 +113,15 @@ void FsmComponent::Update()
         return;   // no graph assigned -> nothing to run (not an error)
 
     // Asset reloaded or reassigned: drop the latched failure + machine state.
-    if (g != lastGraph_)
+    if (g != m_LastGraph)
     {
-        lastGraph_ = g;
+        m_LastGraph = g;
         ResetMachine();
     }
     if (m_Failed)
         return;
 
-    transitionsThisFrame_ = 0;
+    m_TransitionsThisFrame = 0;
 
     if (!m_Initialized)
     {
@@ -155,7 +155,7 @@ void FsmComponent::SendEvent(const std::string& name)
         FailFsm("SendEvent with an empty event name");
         return;
     }
-    eventQueue_.push_back({ name, -1 });
+    m_EventQueue.push_back({ name, -1 });
 }
 
 const std::string& FsmComponent::ActiveStateName() const
@@ -199,12 +199,12 @@ std::shared_ptr<bool> FsmComponent::EnsureClickWatch(const void* key, ButtonComp
 {
     // Linear: a machine watches one or two buttons, and the search is shorter
     // than hashing the key would be.
-    for (const ClickWatch& watch : clickWatches_)
+    for (const ClickWatch& watch : m_ClickWatches)
         if (watch.key == key)
             return watch.flag;
 
     auto flag = std::make_shared<bool>(false);
-    clickWatches_.push_back({ key, flag });
+    m_ClickWatches.push_back({ key, flag });
     if (button)
         button->AddOnClickCallback([flag]() { *flag = true; });
     return flag;
@@ -222,10 +222,10 @@ void FsmComponent::ResetMachine()
     m_Tracks.clear();
     m_Initialized = false;
     m_Failed = false;
-    eventQueue_.clear();
-    eventHead_ = 0;
-    maxActionState_ = 0;     // re-measured from the new graph on the next init
-    clickWatches_.clear();   // callbacks on buttons keep their (now orphan) flags alive
+    m_EventQueue.clear();
+    m_EventHead = 0;
+    m_MaxActionState = 0;     // re-measured from the new graph on the next init
+    m_ClickWatches.clear();   // callbacks on buttons keep their (now orphan) flags alive
     m_Variables.clear();      // re-declared from the new graph on the next init
 }
 
@@ -436,7 +436,7 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
 
     // Then the size every track's action-state slot needs, before any track
     // exists: EnterState runs an action the moment a track is created.
-    maxActionState_ = MaxActionState(g.Root());
+    m_MaxActionState = MaxActionState(g.Root());
 
     const uint32_t kLifecycleOrder[] = { kAwakeId, kStartId, kUpdateId };
     for (uint32_t entryTypeId : kLifecycleOrder)
@@ -450,7 +450,7 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
                 continue;   // unused hook
             m_Tracks.emplace_back();
             // Allocated once, here: no state change after this ever resizes it.
-            m_Tracks.back().stateBuf.assign(maxActionState_, 0);
+            m_Tracks.back().stateBuf.assign(m_MaxActionState, 0);
             EnterState(m_Tracks.back(), &g.Root(), first);
             if (m_Failed)
                 return;
@@ -585,7 +585,7 @@ void FsmComponent::ExitState(Track& track)
 // state lives in, which is the only place its transitions can be wired.
 void FsmComponent::ProcessEvents()
 {
-    while (eventHead_ < eventQueue_.size() && !m_Failed)
+    while (m_EventHead < m_EventQueue.size() && !m_Failed)
     {
         // By value, and by index: entering a state runs its first action, which
         // may raise events of its own, so the vector can grow (and move) inside
@@ -593,7 +593,7 @@ void FsmComponent::ProcessEvents()
         // keeps the drain from shifting every remaining entry down one.
         // Moved out, not copied: the slot is never read again once the head
         // has passed it, and a copy allocated for any name over 15 chars.
-        const QueuedEvent ev = std::move(eventQueue_[eventHead_++]);
+        const QueuedEvent ev = std::move(m_EventQueue[m_EventHead++]);
 
         // Broadcast events are offered to every track (each may transition on
         // it independently); track-scoped events (FINISHED) only to their own.
@@ -638,7 +638,7 @@ void FsmComponent::ProcessEvents()
                 return;
             }
 
-            if (++transitionsThisFrame_ > kMaxTransitionsPerFrame)
+            if (++m_TransitionsThisFrame > kMaxTransitionsPerFrame)
             {
                 FailFsm("more than 16 transitions in one frame (event cycle?)");
                 return;
@@ -649,24 +649,24 @@ void FsmComponent::ProcessEvents()
             // still-queued event scoped to this track belongs to it, not to
             // the state just entered, so it must not be delivered there.
             //
-            // From the UNDRAINED part only: the entries before eventHead_ are
+            // From the UNDRAINED part only: the entries before m_EventHead are
             // already consumed, and erasing one would slide the pending ones
             // down under the index this loop is reading with.
-            eventQueue_.erase(
-                std::remove_if(eventQueue_.begin() + static_cast<std::ptrdiff_t>(eventHead_),
-                               eventQueue_.end(),
+            m_EventQueue.erase(
+                std::remove_if(m_EventQueue.begin() + static_cast<std::ptrdiff_t>(m_EventHead),
+                               m_EventQueue.end(),
                                [t](const QueuedEvent& q)
                                { return q.track == static_cast<int>(t); }),
-                eventQueue_.end());
+                m_EventQueue.end());
         }
     }
 
     // Fully drained: rewind to the front, keeping the storage for next frame.
     // (A latched failure leaves the rest where it is; ResetMachine clears both.)
-    if (eventHead_ >= eventQueue_.size())
+    if (m_EventHead >= m_EventQueue.size())
     {
-        eventQueue_.clear();
-        eventHead_ = 0;
+        m_EventQueue.clear();
+        m_EventHead = 0;
     }
 }
 
@@ -721,7 +721,7 @@ void FsmComponent::RunActions()
         if (!track.current && !track.finishedFired)
         {
             track.finishedFired = true;
-            eventQueue_.push_back({ kFinishedEvent, static_cast<int>(t) });
+            m_EventQueue.push_back({ kFinishedEvent, static_cast<int>(t) });
         }
     }
 }

@@ -201,21 +201,21 @@ private:
     // Largest FsmActionOps::stateSize among every action in the graph, found
     // once at init. Every track's slot is this big, so entering a state costs
     // no allocation whatever its actions are.
-    size_t maxActionState_ = 0;
+    size_t m_MaxActionState = 0;
 
     std::vector<Track> m_Tracks;
-    bool m_Initialized = false;            // tracks/stacks built for lastGraph_
-    FsmGraph* lastGraph_ = nullptr;       // detect asset reload/reassign
+    bool m_Initialized = false;            // tracks/stacks built for m_LastGraph
+    FsmGraph* m_LastGraph = nullptr;       // detect asset reload/reassign
     bool m_Failed = false;
-    int transitionsThisFrame_ = 0;
+    int m_TransitionsThisFrame = 0;
 
     // Drained by index, never erased from the front: processing an event can
     // queue more (an action's onEnter raising one), and erase(begin()) would
     // shift the rest down for every single event. Cleared once empty.
-    std::vector<QueuedEvent> eventQueue_;
-    size_t eventHead_ = 0;
+    std::vector<QueuedEvent> m_EventQueue;
+    size_t m_EventHead = 0;
 
-    std::vector<ClickWatch> clickWatches_;
+    std::vector<ClickWatch> m_ClickWatches;
 
     // Stable for the machine's life once built (actions cache pointers into it),
     // so this must never be reallocated while a graph is running — it is filled
