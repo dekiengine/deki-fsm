@@ -15,7 +15,7 @@
 //
 // The graph mirrors a script's lifecycle with PARALLEL TRACKS. The three
 // entry nodes (Awake/Start/Update) are permanent fixtures of every graph,
-// exactly like the hooks of a DekiBehaviour; each WIRED entry output begins
+// exactly like the hooks of a Deki::Behaviour; each WIRED entry output begins
 // its own track — an independent state flow with its own active state — and
 // an unwired output is an unused hook. Custom events (raised by actions or
 // SendEvent()) broadcast to every track; each track's active state decides
@@ -48,9 +48,9 @@
 // storm (>16 per frame), an action flow that steps more than 256 times in one
 // frame, or a graph with nothing to run logs ONE error and latches the machine
 // off until the graph asset is reloaded or reassigned.
-class FsmComponent : public DekiBehaviour
+class FsmComponent : public Deki::Behaviour
 {
-    DEKI_COMPONENT(FsmComponent, DekiBehaviour, "Logic", "3f8a61c9-7b2e-4d5a-9c14-8e6f2a0b5d73", "DEKI_FEATURE_FSM")
+    DEKI_COMPONENT(FsmComponent, Deki::Behaviour, "Logic", "3f8a61c9-7b2e-4d5a-9c14-8e6f2a0b5d73", "DEKI_FEATURE_FSM")
     DEKI_DESCRIPTION("Runs a state machine graph asset on this object.")
 public:
     // The state-machine graph. Assign a ".asset" of type "FsmGraph". No asset
@@ -81,7 +81,7 @@ public:
 
     // "" = owner; else by object name within the owner's scene. nullptr after
     // latching failed (logged).
-    DekiObject* ResolveTargetObject(const std::string& name);
+    Deki::Object* ResolveTargetObject(const std::string& name);
 
     // Shared clicked-flag for Watch Button: first call for `key` (the action's
     // data instance) registers a click callback on `button` that sets the
@@ -97,7 +97,7 @@ public:
      * them — actions call this instead when ref.component is "Variable".
      * Returns false (after logging + latching) when there is no such variable.
      */
-    bool BindVariable(const PropertyRef& ref, PropertyBinding& out);
+    bool BindVariable(const Deki::PropertyRef& ref, Deki::PropertyBinding& out);
 
 private:
     // One independent state flow, begun by a wired lifecycle root output.
@@ -166,7 +166,7 @@ private:
     struct Variable
     {
         uint32_t nameHash = 0;
-        DekiPropertyType type = DekiPropertyType::Float;
+        Deki::PropertyType type = Deki::PropertyType::Float;
         float number = 0.0f;
         float number2 = 0.0f;
         std::string text;

@@ -69,7 +69,7 @@ group never changes what the machine does.
 ## Parallel tracks
 
 `Awake`, `Start` and `Update` are permanent lifecycle entries, exactly like the
-hooks of a `DekiBehaviour`. Each **wired** output begins its own track: an
+hooks of a `Deki::Behaviour`. Each **wired** output begins its own track: an
 independent state flow with its own active state, all running side by side on
 one component, entered in that order. An unwired entry is an unused hook, not an
 error. Custom events broadcast to every track; `FINISHED` is per-track.

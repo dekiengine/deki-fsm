@@ -104,7 +104,7 @@ struct FsmSetPropertyAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
-    DEKI_EXPORT PropertyRef target;
+    DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string value;
     DEKI_EXPORT bool everyFrame = false;
 };
@@ -125,7 +125,7 @@ struct FsmComparePropertyAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("true", "false")
 public:
-    DEKI_EXPORT PropertyRef target;
+    DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT FsmCompareOp compare = FsmCompareOp::Equals;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string value;
     DEKI_EXPORT bool waitUntilTrue = false;
@@ -146,7 +146,7 @@ struct FsmTweenPropertyAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
-    DEKI_EXPORT PropertyRef target;
+    DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string to;
     DEKI_EXPORT float duration = 1.0f;
     DEKI_EXPORT Deki::EaseType ease = Deki::EaseType::Linear;
@@ -165,7 +165,7 @@ struct FsmModifyPropertyAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
-    DEKI_EXPORT PropertyRef target;
+    DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT FsmMathOp operation = FsmMathOp::Add;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string operand;
     DEKI_EXPORT bool everyFrame = false;
@@ -182,7 +182,7 @@ struct FsmRandomPropertyAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
-    DEKI_EXPORT PropertyRef target;
+    DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT float min = 0.0f;
     DEKI_EXPORT float max = 1.0f;
     DEKI_EXPORT bool wholeNumbers = false;
@@ -203,7 +203,7 @@ struct FsmSpawnSceneAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
-    DEKI_EXPORT Deki::AssetRef<Scene> scene;
+    DEKI_EXPORT Deki::AssetRef<Deki::Scene> scene;
     DEKI_EXPORT DEKI_UNIT(Distance) float x = 0.0f;
     DEKI_EXPORT DEKI_UNIT(Distance) float y = 0.0f;
     DEKI_EXPORT bool relative = false;

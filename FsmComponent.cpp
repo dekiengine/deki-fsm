@@ -13,27 +13,27 @@
 
 namespace
 {
-    constexpr uint32_t kStartId  = DekiHashString("FsmStart");
-    constexpr uint32_t kStateId  = DekiHashString("FsmState");
-    constexpr uint32_t kAwakeId  = DekiHashString("FsmAwake");
-    constexpr uint32_t kUpdateId = DekiHashString("FsmUpdate");
+    constexpr uint32_t kStartId  = Deki::HashString("FsmStart");
+    constexpr uint32_t kStateId  = Deki::HashString("FsmState");
+    constexpr uint32_t kAwakeId  = Deki::HashString("FsmAwake");
+    constexpr uint32_t kUpdateId = Deki::HashString("FsmUpdate");
 
     // A state's action flow starts at this node; groups are entered and left
     // through theirs. All three are pure wiring: they carry no behavior and are
     // never handed to the action registry.
-    constexpr uint32_t kActionEntryId = DekiHashString("FsmActionEntry");
-    constexpr uint32_t kGroupId       = DekiHashString("FsmGroup");
-    constexpr uint32_t kGroupInId     = DekiHashString("FsmGroupIn");
-    constexpr uint32_t kGroupExitId   = DekiHashString("FsmGroupExit");
+    constexpr uint32_t kActionEntryId = Deki::HashString("FsmActionEntry");
+    constexpr uint32_t kGroupId       = Deki::HashString("FsmGroup");
+    constexpr uint32_t kGroupInId     = Deki::HashString("FsmGroupIn");
+    constexpr uint32_t kGroupExitId   = Deki::HashString("FsmGroupExit");
 
     // Variables. The runtime matches these by type id and casts to the concrete
     // struct: DekiNodeMeta / NodeTypeRegistry are editor-only, so nothing here
     // may go through reflection (the DEKI_NODE_VARIABLES marker exists for the
     // editor's pickers, not for this path).
-    constexpr uint32_t kVariablesId = DekiHashString("FsmVariables");
-    constexpr uint32_t kNumberVarId = DekiHashString("FsmNumberVar");
-    constexpr uint32_t kBoolVarId   = DekiHashString("FsmBoolVar");
-    constexpr uint32_t kTextVarId   = DekiHashString("FsmTextVar");
+    constexpr uint32_t kVariablesId = Deki::HashString("FsmVariables");
+    constexpr uint32_t kNumberVarId = Deki::HashString("FsmNumberVar");
+    constexpr uint32_t kBoolVarId   = Deki::HashString("FsmBoolVar");
+    constexpr uint32_t kTextVarId   = Deki::HashString("FsmTextVar");
 
     // Event-transition storm guard (machine-wide): a graph whose states hand
     // an event around in a cycle would otherwise spin forever within a frame.
@@ -87,7 +87,7 @@ void FsmContext::SendEvent(const std::string& name)
     if (fsm) fsm->SendEvent(name);
 }
 
-DekiObject* FsmContext::ResolveTarget(const std::string& name)
+Deki::Object* FsmContext::ResolveTarget(const std::string& name)
 {
     return fsm ? fsm->ResolveTargetObject(name) : nullptr;
 }
@@ -175,9 +175,9 @@ void FsmComponent::FailFsm(const char* message)
     m_Failed = true;
 }
 
-DekiObject* FsmComponent::ResolveTargetObject(const std::string& name)
+Deki::Object* FsmComponent::ResolveTargetObject(const std::string& name)
 {
-    DekiObject* owner = GetOwner();
+    Deki::Object* owner = GetOwner();
     if (name.empty())
         return owner;
 
@@ -185,7 +185,7 @@ DekiObject* FsmComponent::ResolveTargetObject(const std::string& name)
     // single-root scene holds nothing but Root.
     if (owner && owner->GetOwnerScene())
     {
-        if (DekiObject* found = owner->GetOwnerScene()->FindDekiObject(name))
+        if (Deki::Object* found = owner->GetOwnerScene()->FindDekiObject(name))
             return found;
     }
 
@@ -251,22 +251,22 @@ void FsmComponent::InitializeVariables(const NodeGraphData& g)
             if (child.typeId == kNumberVarId)
             {
                 const auto* d = static_cast<const FsmNumberVariable*>(child.instance);
-                var.nameHash = d->name.empty() ? 0u : DekiHashString(d->name.c_str());
-                var.type = DekiPropertyType::Float;
+                var.nameHash = d->name.empty() ? 0u : Deki::HashString(d->name.c_str());
+                var.type = Deki::PropertyType::Float;
                 var.number = d->value;
             }
             else if (child.typeId == kBoolVarId)
             {
                 const auto* d = static_cast<const FsmBoolVariable*>(child.instance);
-                var.nameHash = d->name.empty() ? 0u : DekiHashString(d->name.c_str());
-                var.type = DekiPropertyType::Bool;
+                var.nameHash = d->name.empty() ? 0u : Deki::HashString(d->name.c_str());
+                var.type = Deki::PropertyType::Bool;
                 var.number = d->value ? 1.0f : 0.0f;
             }
             else if (child.typeId == kTextVarId)
             {
                 const auto* d = static_cast<const FsmTextVariable*>(child.instance);
-                var.nameHash = d->name.empty() ? 0u : DekiHashString(d->name.c_str());
-                var.type = DekiPropertyType::String;
+                var.nameHash = d->name.empty() ? 0u : Deki::HashString(d->name.c_str());
+                var.type = Deki::PropertyType::String;
                 var.text = d->value;
             }
             else
@@ -285,14 +285,14 @@ void FsmComponent::InitializeVariables(const NodeGraphData& g)
     }
 }
 
-bool FsmComponent::BindVariable(const PropertyRef& ref, PropertyBinding& out)
+bool FsmComponent::BindVariable(const Deki::PropertyRef& ref, Deki::PropertyBinding& out)
 {
     for (Variable& var : m_Variables)
     {
         if (var.nameHash != ref.fieldHash)
             continue;
 
-        const DekiFieldRef* info = DekiVariableFieldRef(var.type);
+        const Deki::FieldRef* info = DekiVariableFieldRef(var.type);
         if (!info)
         {
             FailFsm("a variable has a type that cannot be read or written");
@@ -301,10 +301,10 @@ bool FsmComponent::BindVariable(const PropertyRef& ref, PropertyBinding& out)
         // Bools and ints are stored in the float slot, so the binding describes
         // the STORAGE type (Float) rather than the declared one; comparisons and
         // arithmetic behave the same either way.
-        out.info = (var.type == DekiPropertyType::String)
+        out.info = (var.type == Deki::PropertyType::String)
                        ? info
-                       : DekiVariableFieldRef(DekiPropertyType::Float);
-        out.field = (var.type == DekiPropertyType::String)
+                       : DekiVariableFieldRef(Deki::PropertyType::Float);
+        out.field = (var.type == Deki::PropertyType::String)
                         ? static_cast<void*>(&var.text)
                         : static_cast<void*>(&var.number);
         return true;
@@ -672,7 +672,7 @@ void FsmComponent::ProcessEvents()
 
 void FsmComponent::RunActions()
 {
-    const float dt = DekiTime::GetDeltaTimeF() * 0.001f;
+    const float dt = Deki::Time::GetDeltaTimeF() * 0.001f;
     FsmContext ctx{ GetOwner(), this, dt };
 
     // Every track runs the ONE action its active state is currently on, and

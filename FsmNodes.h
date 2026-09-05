@@ -9,7 +9,7 @@
 //
 // The graph mirrors a script's lifecycle with PARALLEL TRACKS: Awake, Start
 // and Update are pure ENTRY nodes — lifecycle launch points, exactly like the
-// Awake()/Start()/Update() hooks of a DekiBehaviour — and each one's wired
+// Awake()/Start()/Update() hooks of a Deki::Behaviour — and each one's wired
 // output begins its own track: an independent state flow with its own active
 // state, all running alongside each other on one FsmComponent. ALL actions
 // live in States (an entry node has no behavior of its own); a track's active
@@ -24,7 +24,7 @@
 // descend into the states it contains. The breadcrumb walks back out. Nothing
 // is hidden in a list: if it runs, it is a node on some canvas.
 
-// The three entries are PERMANENT: exactly like the hooks of a DekiBehaviour,
+// The three entries are PERMANENT: exactly like the hooks of a Deki::Behaviour,
 // they are always part of every FSM graph — seeded on creation, restored on
 // open, absent from the add-node menu, not deletable. An unwired output is
 // simply an unused hook, the same as a lifecycle method you didn't override.

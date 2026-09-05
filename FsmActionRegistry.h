@@ -7,14 +7,14 @@
 #include <string>
 #include <unordered_map>
 
-class DekiObject;
+namespace Deki { class Object; }
 class FsmComponent;
 
 // Passed to every action callback. Owner/fsm/dt plus the helpers actions need;
 // helpers are implemented by FsmComponent (FsmComponent.cpp).
 struct FsmContext
 {
-    DekiObject* owner = nullptr;   // the object the FsmComponent sits on
+    Deki::Object* owner = nullptr;   // the object the FsmComponent sits on
     FsmComponent* fsm = nullptr;
     float dt = 0.0f;               // seconds this frame
 
@@ -24,7 +24,7 @@ struct FsmContext
 
     // "" = owner; else an object of the owner's scene by name. Returns
     // nullptr AFTER latching the FSM failed (logged) — callers just bail.
-    DekiObject* ResolveTarget(const std::string& name);
+    Deki::Object* ResolveTarget(const std::string& name);
 
     // Log one error and latch the FSM failed (no fallback policy: a broken
     // action stops the machine loudly instead of quietly misbehaving).
@@ -62,7 +62,7 @@ struct FsmActionOps
 };
 
 /**
- * @brief typeId (DekiHashString of the action's node name) -> runtime ops.
+ * @brief typeId (Deki::HashString of the action's node name) -> runtime ops.
  *
  * The data structs self-register into NodeFactory via their generated code;
  * this registry carries the behavior half. Cleared implicitly on DLL unload
@@ -93,6 +93,6 @@ private:
     static struct ClassName##_FsmActionRegistrar { \
         ClassName##_FsmActionRegistrar() { \
             FsmActionRegistry::Instance().Register( \
-                DekiHashString(ClassName::StaticNodeName), Ops); \
+                ::Deki::HashString(ClassName::StaticNodeName), Ops); \
         } \
     } s_##ClassName##_FsmActionRegistrar

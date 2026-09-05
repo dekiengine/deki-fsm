@@ -58,7 +58,7 @@ constexpr int kFalsePin = 1;
 
 struct BoundState
 {
-    PropertyBinding binding;
+    Deki::PropertyBinding binding;
     uint8_t bound;     // 1 once the reference resolved (0 = the FSM latched)
     uint8_t flag;      // Set Property: applied; Compare Property: fired
 };
@@ -66,13 +66,13 @@ struct BoundState
 // Resolve a reference to a live binding. A "Variable" reference is the
 // machine's own storage (the engine can't see it), anything else is a component
 // field or the object's transform.
-bool BindRef(FsmContext& ctx, const PropertyRef& ref, const char* actionName,
-             PropertyBinding& out)
+bool BindRef(FsmContext& ctx, const Deki::PropertyRef& ref, const char* actionName,
+             Deki::PropertyBinding& out)
 {
-    if (ref.component == kVariableRefComponent)
+    if (ref.component == Deki::kVariableRefComponent)
         return ctx.fsm && ctx.fsm->BindVariable(ref, out);
 
-    DekiObject* target = ctx.ResolveTarget(ref.object);
+    Deki::Object* target = ctx.ResolveTarget(ref.object);
     if (!target)
         return false;   // FSM already latched by ResolveTarget
 
@@ -91,7 +91,7 @@ bool BindRef(FsmContext& ctx, const PropertyRef& ref, const char* actionName,
 
 // Resolve `ref` and pre-parse `literal` into s->binding. Fails the FSM (once,
 // with the offending names) and leaves s->bound at 0 on any miss.
-void BindOrFail(FsmContext& ctx, const PropertyRef& ref, const std::string& literal,
+void BindOrFail(FsmContext& ctx, const Deki::PropertyRef& ref, const std::string& literal,
                 const char* actionName, BoundState* s)
 {
     if (!BindRef(ctx, ref, actionName, s->binding))
@@ -192,7 +192,7 @@ void Compare_Enter(const void* data, void* state, FsmContext& ctx)
 
     // Ordering a string has no meaning here; catch it at bind time rather than
     // silently comparing something surprising every frame.
-    if (static_cast<DekiPropertyType>(s->binding.info->type) == DekiPropertyType::String &&
+    if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::String &&
         d->compare != FsmCompareOp::Equals && d->compare != FsmCompareOp::NotEquals)
     {
         ctx.Fail("Compare Property: Less/Greater on a String field");
@@ -237,7 +237,7 @@ const FsmActionOps kCompareOps = { sizeof(BoundState), &Compare_Enter, &Compare_
 // A Vector2 target drives both axes, so one action can move diagonally.
 struct TweenState
 {
-    PropertyBinding binding;
+    Deki::PropertyBinding binding;
     uint8_t bound;
     float elapsed;
     double start;    // first axis
@@ -252,9 +252,9 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
     if (!BindRef(ctx, d->target, "Tween Property", s->binding))
         return;   // FSM latched
 
-    const auto type = static_cast<DekiPropertyType>(s->binding.info->type);
-    if (type != DekiPropertyType::Float && type != DekiPropertyType::Double &&
-        type != DekiPropertyType::Vector2)
+    const auto type = static_cast<Deki::PropertyType>(s->binding.info->type);
+    if (type != Deki::PropertyType::Float && type != Deki::PropertyType::Double &&
+        type != Deki::PropertyType::Vector2)
     {
         ctx.Fail("Tween Property: only float and Vector2 fields can be tweened");
         return;
@@ -310,7 +310,7 @@ void Modify_Enter(const void* data, void* state, FsmContext& ctx)
     if (!s->bound)
         return;
 
-    if (static_cast<DekiPropertyType>(s->binding.info->type) == DekiPropertyType::String)
+    if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::String)
     {
         ctx.Fail("Modify Property: arithmetic on a String field");
         s->bound = 0;
@@ -346,7 +346,7 @@ int Modify_Update(const void* data, void* state, FsmContext& ctx)
 
     // Vector2 targets apply the same operation to both axes.
     double next2 = 0.0;
-    if (static_cast<DekiPropertyType>(s->binding.info->type) == DekiPropertyType::Vector2)
+    if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::Vector2)
     {
         const double cur2 = ReadBoundProperty2(s->binding);
         const double rhs2 = s->binding.number2;
@@ -386,7 +386,7 @@ void Random_Enter(const void* data, void* state, FsmContext& ctx)
     if (!BindRef(ctx, d->target, "Random Property", s->binding))
         return;   // FSM latched
 
-    if (static_cast<DekiPropertyType>(s->binding.info->type) == DekiPropertyType::String)
+    if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::String)
     {
         ctx.Fail("Random Property: cannot write a random number into a String field");
         return;
@@ -417,7 +417,7 @@ int Random_Update(const void* data, void* state, FsmContext& /*ctx*/)
     };
 
     const bool isVec2 =
-        static_cast<DekiPropertyType>(s->binding.info->type) == DekiPropertyType::Vector2;
+        static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::Vector2;
     WriteBoundNumbers(s->binding, roll(), isVec2 ? roll() : 0.0);
     return kDone;
 }
@@ -432,15 +432,15 @@ int Spawn_Update(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSpawnSceneAction*>(data);
 
-    Scene* source = const_cast<Deki::AssetRef<Scene>&>(d->scene).Get();
+    Deki::Scene* source = const_cast<Deki::AssetRef<Deki::Scene>&>(d->scene).Get();
     if (!source)
     {
         ctx.Fail("Spawn Scene: no scene assigned (or it failed to load)");
         return kDone;
     }
 
-    DekiObject* owner = ctx.owner;
-    Scene* into = owner ? owner->GetOwnerScene() : nullptr;
+    Deki::Object* owner = ctx.owner;
+    Deki::Scene* into = owner ? owner->GetOwnerScene() : nullptr;
     if (!into)
     {
         ctx.Fail("Spawn Scene: the FSM's object is not in a running scene");
@@ -455,7 +455,7 @@ int Spawn_Update(const void* data, void* /*state*/, FsmContext& ctx)
         py += owner->GetY();
     }
 
-    DekiObject* spawned = source->Instantiate(into, px, py);
+    Deki::Object* spawned = source->Instantiate(into, px, py);
     if (!spawned)
     {
         ctx.Fail("Spawn Scene: instantiate failed");
@@ -476,11 +476,11 @@ int Destroy_Update(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmDestroyObjectAction*>(data);
 
-    DekiObject* target = ctx.ResolveTarget(d->targetObject);
+    Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
         return kDone;   // FSM latched
 
-    Scene* owner = target->GetOwnerScene();
+    Deki::Scene* owner = target->GetOwnerScene();
     if (!owner)
     {
         ctx.Fail("Destroy Object: the target is not in a running scene");
@@ -500,13 +500,13 @@ int SetParent_Update(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSetParentAction*>(data);
 
-    DekiObject* target = ctx.ResolveTarget(d->targetObject);
+    Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
         return kDone;   // FSM latched
 
     // An empty new parent means the scene root, so it is resolved separately
     // from ResolveTarget (where empty means "the FSM's own object").
-    DekiObject* parent = nullptr;
+    Deki::Object* parent = nullptr;
     if (!d->newParent.empty())
     {
         parent = ctx.ResolveTarget(d->newParent);
@@ -530,7 +530,7 @@ void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmPlayAnimationAction*>(data);
     auto* s = static_cast<PlayAnimState*>(state);
 
-    DekiObject* target = ctx.ResolveTarget(d->targetObject);
+    Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
         return;   // FSM latched
 
@@ -578,7 +578,7 @@ int SendEventTo_Update(const void* data, void* /*state*/, FsmContext& ctx)
         return kDone;
     }
 
-    DekiObject* target = ctx.ResolveTarget(d->targetObject);
+    Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
         return kDone;   // FSM latched
 
@@ -625,7 +625,7 @@ void WatchButton_Enter(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmWatchButtonAction*>(data);
     auto* s = static_cast<WatchButtonState*>(state);
 
-    DekiObject* target = ctx.ResolveTarget(d->buttonObject);
+    Deki::Object* target = ctx.ResolveTarget(d->buttonObject);
     if (!target)
         return;   // FSM latched
 

@@ -22,7 +22,7 @@
 // Auto-generated registration helpers
 extern void DekiFsm_RegisterComponents();
 extern int DekiFsm_GetAutoComponentCount();
-extern const DekiComponentMeta* DekiFsm_GetAutoComponentMeta(int index);
+extern const Deki::ComponentMeta* DekiFsm_GetAutoComponentMeta(int index);
 
 // Defined in editor/FsmGraphEditor.cpp (re-registers the Fsm graph domain).
 extern "C" void DekiFsm_RegisterEditorGraphDomain(void);
@@ -40,9 +40,9 @@ namespace
     void RegisterFsmNodeType()
     {
         SceneFormat::NodeFactory::Instance().Register(
-            DekiHashString(T::StaticNodeName),
+            Deki::HashString(T::StaticNodeName),
             []() -> void* { return new T(); },
-            [](void* p, SceneFormat::SceneMsgPackParser& parser, uint32_t mapSize) -> bool {
+            [](void* p, Deki::SceneFormat::SceneMsgPackParser& parser, uint32_t mapSize) -> bool {
                 return DeserializeMsgPack(*static_cast<T*>(p), parser, mapSize); },
             [](void* p) { delete static_cast<T*>(p); });
         NodeTypeRegistry::Instance().Register(&T::GetNodeMeta(), sizeof(DekiNodeMeta));
@@ -140,7 +140,7 @@ DEKI_PLUGIN_API int DekiPlugin_GetComponentCount(void)
     return DekiFsm_GetAutoComponentCount();
 }
 
-DEKI_PLUGIN_API const DekiComponentMeta* DekiPlugin_GetComponentMeta(int index)
+DEKI_PLUGIN_API const Deki::ComponentMeta* DekiPlugin_GetComponentMeta(int index)
 {
     return DekiFsm_GetAutoComponentMeta(index);
 }
