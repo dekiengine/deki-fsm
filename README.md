@@ -1,5 +1,7 @@
 # deki-fsm
 
+Documentation: https://dekiengine.github.io/deki-fsm/ (components and properties, generated from the code)
+
 PlayMaker-style finite state machines for Deki Engine.
 
 Put an `FsmComponent` on any object and assign it a **State Machine** asset
