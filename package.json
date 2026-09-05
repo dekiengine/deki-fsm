@@ -1,7 +1,7 @@
 {
   "id": "deki-fsm",
   "displayName": "FSM",
-  "minEngine": "1.2.0",
+  "minEngine": "2.0.0",
   "buildDefine": "DEKI_PACKAGE_FSM",
   "requires": [
     "deki-nodegraph",
