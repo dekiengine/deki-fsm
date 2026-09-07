@@ -103,7 +103,6 @@ void FsmContext::Fail(const char* message)
 
 void FsmComponent::Awake()
 {
-    SetNeedsUpdate(true);
 }
 
 void FsmComponent::Update()
