@@ -48,10 +48,10 @@
 // storm (>16 per frame), an action flow that steps more than 256 times in one
 // frame, or a graph with nothing to run logs ONE error and latches the machine
 // off until the graph asset is reloaded or reassigned.
+DEKI_CATEGORY("Logic")
+DEKI_DESCRIPTION("Runs a state machine graph asset on this object.")
 class FsmComponent : public Deki::Behaviour
 {
-    DEKI_COMPONENT(FsmComponent, Deki::Behaviour, "Logic", "3f8a61c9-7b2e-4d5a-9c14-8e6f2a0b5d73", "DEKI_FEATURE_FSM")
-    DEKI_DESCRIPTION("Runs a state machine graph asset on this object.")
 public:
     // The state-machine graph. Assign a ".asset" of type "FsmGraph". No asset
     // -> the component idles (nothing to run).
@@ -223,4 +223,3 @@ private:
     std::vector<Variable> m_Variables;
 };
 
-#include "generated/FsmComponent.gen.h"
