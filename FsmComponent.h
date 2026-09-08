@@ -15,7 +15,7 @@
 //
 // The graph mirrors a script's lifecycle with PARALLEL TRACKS. The three
 // entry nodes (Awake/Start/Update) are permanent fixtures of every graph,
-// exactly like the hooks of a Deki::Behaviour; each WIRED entry output begins
+// exactly like the hooks of a Deki::Component; each WIRED entry output begins
 // its own track — an independent state flow with its own active state — and
 // an unwired output is an unused hook. Custom events (raised by actions or
 // SendEvent()) broadcast to every track; each track's active state decides
@@ -50,7 +50,7 @@
 // off until the graph asset is reloaded or reassigned.
 DEKI_CATEGORY("Logic")
 DEKI_DESCRIPTION("Runs a state machine graph asset on this object.")
-class FsmComponent : public Deki::Behaviour
+class FsmComponent : public Deki::Component
 {
 public:
     // The state-machine graph. Assign a ".asset" of type "FsmGraph". No asset
