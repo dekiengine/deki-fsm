@@ -11,6 +11,9 @@
 #include <algorithm>
 #include <cstring>
 
+namespace DekiFsm
+{
+
 namespace
 {
     constexpr uint32_t kStartId  = Deki::HashString("FsmStart");
@@ -27,7 +30,7 @@ namespace
     constexpr uint32_t kGroupExitId   = Deki::HashString("FsmGroupExit");
 
     // Variables. The runtime matches these by type id and casts to the concrete
-    // struct: DekiNodeMeta / NodeTypeRegistry are editor-only, so nothing here
+    // struct: DekiNodeGraph::DekiNodeMeta / DekiNodeGraph::NodeTypeRegistry are editor-only, so nothing here
     // may go through reflection (the DEKI_NODE_VARIABLES marker exists for the
     // editor's pickers, not for this path).
     constexpr uint32_t kVariablesId = Deki::HashString("FsmVariables");
@@ -59,7 +62,7 @@ namespace
     // action of the state being entered, plus an offset table - sized itself to
     // the SUM of a flow's actions when only one of them is ever live, and
     // reallocated both vectors on every single state change.
-    size_t MaxActionState(const NodeGraphData::Graph& graph)
+    size_t MaxActionState(const DekiNodeGraph::NodeGraphData::Graph& graph)
     {
         size_t maxSize = 0;
         for (const auto& node : graph.nodes)
@@ -194,7 +197,7 @@ Deki::Object* FsmComponent::ResolveTargetObject(const std::string& name)
     return nullptr;
 }
 
-std::shared_ptr<bool> FsmComponent::EnsureClickWatch(const void* key, ButtonComponent* button)
+std::shared_ptr<bool> FsmComponent::EnsureClickWatch(const void* key, Deki2D::ButtonComponent* button)
 {
     // Linear: a machine watches one or two buttons, and the search is shorter
     // than hashing the key would be.
@@ -217,7 +220,7 @@ void FsmComponent::ResetMachine()
 {
     // Hard drop, deliberately WITHOUT running onExit: this path fires when the
     // graph asset was reloaded or reassigned, so track state may point into
-    // freed NodeGraphData — touching it would be use-after-free.
+    // freed DekiNodeGraph::NodeGraphData — touching it would be use-after-free.
     m_Tracks.clear();
     m_Initialized = false;
     m_Failed = false;
@@ -228,7 +231,7 @@ void FsmComponent::ResetMachine()
     m_Variables.clear();      // re-declared from the new graph on the next init
 }
 
-void FsmComponent::InitializeVariables(const NodeGraphData& g)
+void FsmComponent::InitializeVariables(const DekiNodeGraph::NodeGraphData& g)
 {
     m_Variables.clear();
 
@@ -316,8 +319,8 @@ bool FsmComponent::BindVariable(const Deki::PropertyRef& ref, Deki::PropertyBind
     return false;
 }
 
-const NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarget(
-    const NodeGraphData::Graph*& graph, const NodeGraphData::NodeInstance* node, Track& track)
+const DekiNodeGraph::NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarget(
+    const DekiNodeGraph::NodeGraphData::Graph*& graph, const DekiNodeGraph::NodeGraphData::NodeInstance* node, Track& track)
 {
     for (int hop = 0; hop < kMaxFlowHops; ++hop)
     {
@@ -338,13 +341,13 @@ const NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarget(
                 FailFsm("a Group has no contents");
                 return nullptr;
             }
-            const NodeGraphData::NodeInstance* in = node->inner->FindFirstOfType(kGroupInId);
+            const DekiNodeGraph::NodeGraphData::NodeInstance* in = node->inner->FindFirstOfType(kGroupInId);
             if (!in)
             {
                 FailFsm("a Group has no Group In node");
                 return nullptr;
             }
-            const NodeGraphData::NodeInstance* next = node->inner->Next(in->id, 0);
+            const DekiNodeGraph::NodeGraphData::NodeInstance* next = node->inner->Next(in->id, 0);
             if (!next)
             {
                 const auto* d = static_cast<const FsmGroupNode*>(node->instance);
@@ -395,7 +398,7 @@ const NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarget(
                 FailFsm(buf);
                 return nullptr;
             }
-            const NodeGraphData::NodeInstance* next = frame.graph->Next(frame.group->id, pin);
+            const DekiNodeGraph::NodeGraphData::NodeInstance* next = frame.graph->Next(frame.group->id, pin);
             if (!next)
             {
                 char buf[192];
@@ -417,7 +420,7 @@ const NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarget(
     return nullptr;
 }
 
-void FsmComponent::InitializeMachine(const NodeGraphData& g)
+void FsmComponent::InitializeMachine(const DekiNodeGraph::NodeGraphData& g)
 {
     // The lifecycle entries (Awake/Start/Update) are permanent fixtures of
     // every graph; each WIRED output begins its own parallel track, entered
@@ -444,7 +447,7 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
         {
             if (node.typeId != entryTypeId)
                 continue;
-            const NodeGraphData::NodeInstance* first = g.Root().Next(node.id, 0);
+            const DekiNodeGraph::NodeGraphData::NodeInstance* first = g.Root().Next(node.id, 0);
             if (!first)
                 continue;   // unused hook
             m_Tracks.emplace_back();
@@ -460,13 +463,13 @@ void FsmComponent::InitializeMachine(const NodeGraphData& g)
         FailFsm("graph has nothing to run: no lifecycle output (Awake/Start/Update) is wired");
 }
 
-void FsmComponent::EnterState(Track& track, const NodeGraphData::Graph* graph,
-                              const NodeGraphData::NodeInstance* target)
+void FsmComponent::EnterState(Track& track, const DekiNodeGraph::NodeGraphData::Graph* graph,
+                              const DekiNodeGraph::NodeGraphData::NodeInstance* target)
 {
     // Groups are crossed here, not stored: what a track holds is always a real
     // State, whatever depth of grouping it was reached through.
-    const NodeGraphData::Graph* stateGraph = graph;
-    const NodeGraphData::NodeInstance* state = ResolveFlowTarget(stateGraph, target, track);
+    const DekiNodeGraph::NodeGraphData::Graph* stateGraph = graph;
+    const DekiNodeGraph::NodeGraphData::NodeInstance* state = ResolveFlowTarget(stateGraph, target, track);
     if (!state)
         return;   // machine already latched
 
@@ -499,10 +502,10 @@ void FsmComponent::EnterState(Track& track, const NodeGraphData::Graph* graph,
     // Start at whatever the Entry node points at. No Entry, or nothing wired to
     // it, is an empty flow: the state does nothing and finishes immediately,
     // which is what a pure "wait for an event here" state looks like.
-    const NodeGraphData::NodeInstance* first = nullptr;
+    const DekiNodeGraph::NodeGraphData::NodeInstance* first = nullptr;
     if (track.actions)
     {
-        if (const NodeGraphData::NodeInstance* entry = track.actions->FindFirstOfType(kActionEntryId))
+        if (const DekiNodeGraph::NodeGraphData::NodeInstance* entry = track.actions->FindFirstOfType(kActionEntryId))
             first = track.actions->Next(entry->id, 0);
     }
 
@@ -510,7 +513,7 @@ void FsmComponent::EnterState(Track& track, const NodeGraphData::Graph* graph,
     BeginAction(track, first, ctx);
 }
 
-void FsmComponent::BeginAction(Track& track, const NodeGraphData::NodeInstance* node,
+void FsmComponent::BeginAction(Track& track, const DekiNodeGraph::NodeGraphData::NodeInstance* node,
                                FsmContext& ctx)
 {
     track.current = node;
@@ -627,7 +630,7 @@ void FsmComponent::ProcessEvents()
 
             // Transitions are wired in the graph the state itself lives in,
             // which for a state inside a group is that group's inner graph.
-            const NodeGraphData::NodeInstance* next = track.graph->Next(track.active->id, pin);
+            const DekiNodeGraph::NodeGraphData::NodeInstance* next = track.graph->Next(track.active->id, pin);
             if (!next)
             {
                 char buf[192];
@@ -687,7 +690,7 @@ void FsmComponent::RunActions()
         while (track.current)
         {
             const FsmActionOps* ops = track.currentOps;
-            const NodeGraphData::NodeInstance* node = track.current;
+            const DekiNodeGraph::NodeGraphData::NodeInstance* node = track.current;
             void* const state = track.stateBuf.empty()
                                     ? nullptr
                                     : static_cast<void*>(track.stateBuf.data());
@@ -724,3 +727,5 @@ void FsmComponent::RunActions()
         }
     }
 }
+
+}  // namespace DekiFsm

@@ -8,6 +8,9 @@
 #include <unordered_map>
 
 namespace Deki { class Object; }
+
+namespace DekiFsm
+{
 class FsmComponent;
 
 // Passed to every action callback. Owner/fsm/dt plus the helpers actions need;
@@ -64,7 +67,7 @@ struct FsmActionOps
 /**
  * @brief typeId (Deki::HashString of the action's node name) -> runtime ops.
  *
- * The data structs self-register into NodeFactory via their generated code;
+ * The data structs self-register into DekiNodeGraph::NodeFactory via their generated code;
  * this registry carries the behavior half. Cleared implicitly on DLL unload
  * (static storage) — entries and the graphs referencing them live and die
  * with the same package/plugin DLLs.
@@ -96,3 +99,5 @@ private:
                 ::Deki::HashString(ClassName::StaticNodeName), Ops); \
         } \
     } s_##ClassName##_FsmActionRegistrar
+
+}  // namespace DekiFsm

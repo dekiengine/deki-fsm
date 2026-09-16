@@ -15,16 +15,25 @@
 #include "FsmActions.h"
 #include <deki/reflection/ComponentRegistry.h>
 #include <deki/reflection/ComponentFactory.h>
-#include "deki-nodegraph/DekiNode.h"   // NodeFactory + NodeTypeRegistry (editor)
+#include "deki-nodegraph/DekiNode.h"   // DekiNodeGraph::NodeFactory + DekiNodeGraph::NodeTypeRegistry (editor)
 
-#ifdef DEKI_EDITOR
-
-// Auto-generated registration helpers
 extern void DekiFsm_RegisterComponents();
 extern int DekiFsm_GetAutoComponentCount();
 extern const Deki::ComponentMeta* DekiFsm_GetAutoComponentMeta(int index);
 
+namespace DekiFsm
+{
+
+#ifdef DEKI_EDITOR
+
+// Auto-generated registration helpers
+
 // Defined in editor/FsmGraphEditor.cpp (re-registers the Fsm graph domain).
+
+// The exports below are C symbols at global scope; the package's own
+// registration helpers and statics live in its namespace.
+using namespace DekiFsm;
+
 extern "C" void DekiFsm_RegisterEditorGraphDomain(void);
 
 static bool s_FsmRegistered = false;
@@ -34,18 +43,18 @@ namespace
     // Re-runnable mirror of the generated REGISTER_RUNTIME_NODE/REGISTER_NODE
     // static registrars. Those run once at DLL load; the editor's plugin-only
     // hot reload wipes the shared node registries WITHOUT unloading this
-    // package, so registration must be repeatable on demand. NodeFactory
-    // overwrites by typeId and NodeTypeRegistry dedupes, so this is idempotent.
+    // package, so registration must be repeatable on demand. DekiNodeGraph::NodeFactory
+    // overwrites by typeId and DekiNodeGraph::NodeTypeRegistry dedupes, so this is idempotent.
     template<typename T>
     void RegisterFsmNodeType()
     {
-        SceneFormat::NodeFactory::Instance().Register(
+        DekiNodeGraph::SceneFormat::NodeFactory::Instance().Register(
             Deki::HashString(T::StaticNodeName),
             []() -> void* { return new T(); },
             [](void* p, Deki::SceneFormat::SceneMsgPackParser& parser, uint32_t mapSize) -> bool {
                 return DeserializeMsgPack(*static_cast<T*>(p), parser, mapSize); },
             [](void* p) { delete static_cast<T*>(p); });
-        NodeTypeRegistry::Instance().Register(&T::GetNodeMeta(), sizeof(DekiNodeMeta));
+        DekiNodeGraph::NodeTypeRegistry::Instance().Register(&T::GetNodeMeta(), sizeof(DekiNodeGraph::DekiNodeMeta));
     }
 }
 
@@ -54,7 +63,7 @@ extern "C" {
 /**
  * @brief (Re-)register this package's node graph types: state/action node
  * factories, editor metas, and the Fsm graph domain. Called at package load via
- * DekiPlugin_RegisterComponents and again after any registry wipe that keeps
+ * ::DekiPlugin_RegisterComponents and again after any registry wipe that keeps
  * this DLL loaded (plugin-only hot reload).
  */
 DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
@@ -95,12 +104,12 @@ DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
 DEKI_FSM_API int DekiFsm_EnsureRegistered(void)
 {
     if (s_FsmRegistered)
-        return DekiFsm_GetAutoComponentCount();
+        return ::DekiFsm_GetAutoComponentCount();
     s_FsmRegistered = true;
 
-    DekiFsm_RegisterComponents();
+    ::DekiFsm_RegisterComponents();
 
-    return DekiFsm_GetAutoComponentCount();
+    return ::DekiFsm_GetAutoComponentCount();
 }
 
 } // extern "C"
@@ -113,7 +122,7 @@ extern "C" {
 
 DEKI_PLUGIN_API const char* DekiPlugin_GetName(void)
 {
-    return "Deki FSM Package";
+    return "DekiRendering::Deki FSM Package";
 }
 
 DEKI_PLUGIN_API const char* DekiPlugin_GetVersion(void)
@@ -137,12 +146,12 @@ DEKI_PLUGIN_API void DekiPlugin_Shutdown(void)
 
 DEKI_PLUGIN_API int DekiPlugin_GetComponentCount(void)
 {
-    return DekiFsm_GetAutoComponentCount();
+    return ::DekiFsm_GetAutoComponentCount();
 }
 
 DEKI_PLUGIN_API const Deki::ComponentMeta* DekiPlugin_GetComponentMeta(int index)
 {
-    return DekiFsm_GetAutoComponentMeta(index);
+    return ::DekiFsm_GetAutoComponentMeta(index);
 }
 
 DEKI_PLUGIN_API void DekiPlugin_RegisterComponents(void)
@@ -176,3 +185,5 @@ DEKI_FSM_API const char* DekiFsm_GetName(void)
 } // extern "C"
 
 #endif // DEKI_EDITOR
+}  // namespace DekiFsm
+

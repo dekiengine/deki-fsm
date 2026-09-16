@@ -37,6 +37,9 @@
 #include <cstring>
 #include <string>
 
+namespace DekiFsm
+{
+
 namespace
 {
 
@@ -249,14 +252,14 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmTweenPropertyAction*>(data);
     auto* s = static_cast<TweenState*>(state);
 
-    if (!BindRef(ctx, d->target, "Tween Property", s->binding))
+    if (!BindRef(ctx, d->target, "DekiTween::Tween Property", s->binding))
         return;   // FSM latched
 
     const auto type = static_cast<Deki::PropertyType>(s->binding.info->type);
     if (type != Deki::PropertyType::Float && type != Deki::PropertyType::Double &&
         type != Deki::PropertyType::Vector2)
     {
-        ctx.Fail("Tween Property: only float and Vector2 fields can be tweened");
+        ctx.Fail("DekiTween::Tween Property: only float and Vector2 fields can be tweened");
         return;
     }
 
@@ -264,7 +267,7 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
                               s->binding.number, s->binding.number2))
     {
         char buf[224];
-        std::snprintf(buf, sizeof(buf), "Tween Property: '%s' is not a valid value for field '%s'",
+        std::snprintf(buf, sizeof(buf), "DekiTween::Tween Property: '%s' is not a valid value for field '%s'",
                       d->to.c_str(), d->target.field.c_str());
         ctx.Fail(buf);
         return;
@@ -288,7 +291,7 @@ int Tween_Update(const void* data, void* state, FsmContext& ctx)
     s->elapsed += ctx.dt;
     float u = d->duration > 0.0f ? s->elapsed / d->duration : 1.0f;
     if (u > 1.0f) u = 1.0f;
-    const float e = Deki::Ease::GetFunction(d->ease)(u);
+    const float e = DekiTween::Ease::GetFunction(d->ease)(u);
 
     WriteBoundNumbers(s->binding,
                       s->start  + (end  - s->start)  * e,
@@ -523,7 +526,7 @@ const FsmActionOps kSetParentOps = { 0, nullptr, &SetParent_Update, nullptr };
 // Play Animation
 // ---------------------------------------------------------------------------
 
-struct PlayAnimState { AnimationComponent* anim; };
+struct PlayAnimState { Deki2D::AnimationComponent* anim; };
 
 void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
 {
@@ -534,11 +537,11 @@ void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
     if (!target)
         return;   // FSM latched
 
-    AnimationComponent* anim = target->GetComponent<AnimationComponent>();
+    Deki2D::AnimationComponent* anim = target->GetComponent<Deki2D::AnimationComponent>();
     if (!anim)
     {
         char buf[192];
-        std::snprintf(buf, sizeof(buf), "Play Animation: object '%s' has no AnimationComponent",
+        std::snprintf(buf, sizeof(buf), "Play Animation: object '%s' has no Deki2D::AnimationComponent",
                       target->GetName().c_str());
         ctx.Fail(buf);
         return;
@@ -629,11 +632,11 @@ void WatchButton_Enter(const void* data, void* state, FsmContext& ctx)
     if (!target)
         return;   // FSM latched
 
-    ButtonComponent* button = target->GetComponent<ButtonComponent>();
+    Deki2D::ButtonComponent* button = target->GetComponent<Deki2D::ButtonComponent>();
     if (!button)
     {
         char buf[192];
-        std::snprintf(buf, sizeof(buf), "Watch Button: object '%s' has no ButtonComponent",
+        std::snprintf(buf, sizeof(buf), "Watch Button: object '%s' has no Deki2D::ButtonComponent",
                       target->GetName().c_str());
         ctx.Fail(buf);
         return;
@@ -681,3 +684,5 @@ REGISTER_FSM_ACTION(FsmPlayAnimationAction, kPlayAnimOps);
 REGISTER_FSM_ACTION(FsmSendEventToAction, kSendEventToOps);
 REGISTER_FSM_ACTION(FsmLogAction, kLogOps);
 REGISTER_FSM_ACTION(FsmWatchButtonAction, kWatchButtonOps);
+
+}  // namespace DekiFsm

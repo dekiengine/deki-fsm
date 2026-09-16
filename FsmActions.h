@@ -6,7 +6,10 @@
 #include <deki/reflection/PropertyRef.h>   // PropertyRef (picked component field)
 #include <deki/assets/AssetRef.h>          // AssetRef<Scene> (Spawn Scene)
 #include <deki/Scene.h>                   // Scene::AssetTypeName
-#include "deki-tween/Easing.h"        // Deki::EaseType (Tween Property easing)
+#include "deki-tween/Easing.h"        // DekiTween::EaseType (Tween Property easing)
+
+namespace DekiFsm
+{
 
 // The action library: the data side. Each action is a plain reflected struct in
 // category "Fsm/Actions" — FsmStateNode's SUBGRAPH category, so these are
@@ -141,7 +144,7 @@ public:
 struct FsmTweenPropertyAction
 {
     DEKI_NODE(FsmTweenPropertyAction, "FsmTweenProperty", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Tween Property";
+    static constexpr const char* StaticNodeDisplayName = "DekiTween::Tween Property";
     static constexpr const char* StaticNodeDescription = "Ease a numeric field to a new value over time.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
@@ -149,7 +152,7 @@ public:
     DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string to;
     DEKI_EXPORT float duration = 1.0f;
-    DEKI_EXPORT Deki::EaseType ease = Deki::EaseType::Linear;
+    DEKI_EXPORT DekiTween::EaseType ease = DekiTween::EaseType::Linear;
     DEKI_EXPORT bool relative = false;
 };
 
@@ -238,7 +241,7 @@ public:
     DEKI_EXPORT DEKI_OBJECT_NAME() std::string newParent;
 };
 
-// Drive the target's AnimationComponent: pick a sequence and play it. When
+// Drive the target's Deki2D::AnimationComponent: pick a sequence and play it. When
 // `waitForFinish` is on the action finishes with the animation (so the flow
 // continues after it), otherwise it finishes immediately and the animation
 // keeps running on its own. `loop` off plays once.
@@ -250,7 +253,7 @@ struct FsmPlayAnimationAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
-    DEKI_EXPORT DEKI_OBJECT_NAME(AnimationComponent) std::string targetObject;
+    DEKI_EXPORT DEKI_OBJECT_NAME(Deki2D::AnimationComponent) std::string targetObject;
     DEKI_EXPORT int32_t sequence = 0;
     DEKI_EXPORT bool loop = true;
     DEKI_EXPORT bool waitForFinish = false;
@@ -283,7 +286,7 @@ public:
     DEKI_EXPORT std::string message;
 };
 
-// Park here until the target's ButtonComponent is clicked, then continue down
+// Park here until the target's Deki2D::ButtonComponent is clicked, then continue down
 // "clicked". Never finishes otherwise, so it keeps watching for as long as its
 // state is active (clicks while another state is active are dropped) and
 // nothing downstream runs until one lands.
@@ -300,7 +303,7 @@ struct FsmWatchButtonAction
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("clicked")
 public:
-    DEKI_EXPORT DEKI_OBJECT_NAME(ButtonComponent) std::string buttonObject;
+    DEKI_EXPORT DEKI_OBJECT_NAME(Deki2D::ButtonComponent) std::string buttonObject;
 };
 
 #include "generated/FsmWaitAction.gen.h"
@@ -317,3 +320,5 @@ public:
 #include "generated/FsmSendEventToAction.gen.h"
 #include "generated/FsmLogAction.gen.h"
 #include "generated/FsmWatchButtonAction.gen.h"
+
+}  // namespace DekiFsm

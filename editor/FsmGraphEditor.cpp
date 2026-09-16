@@ -19,6 +19,9 @@
 
 #include "deki-nodegraph/DekiNode.h"
 
+// Editor extensions live in DekiEditor; the package's own types are in DekiFsm.
+using namespace DekiFsm;
+
 namespace DekiEditor
 {
 
@@ -74,9 +77,13 @@ REGISTER_NODE_GRAPH_DOMAIN(g_FsmDomain,
 // registry while this DLL stays loaded, so the static registrar above never
 // reruns. Registry Register() dedupes, so calling this repeatedly is safe.
 // Invoked from DekiFsm_RegisterGraphTypes (FsmPackage.cpp).
+// The exports below are C symbols at global scope; the package's own
+// registration helpers and statics live in its namespace.
+using namespace DekiEditor;
+
 extern "C" void DekiFsm_RegisterEditorGraphDomain(void)
 {
-    NodeGraphDomainRegistry::Instance().Register(&g_FsmDomain);
+    DekiNodeGraph::NodeGraphDomainRegistry::Instance().Register(&g_FsmDomain);
 }
 
 #endif // DEKI_EDITOR

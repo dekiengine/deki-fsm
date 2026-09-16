@@ -1,6 +1,6 @@
 #include "FsmGraph.h"
-#include "FsmNodes.h"     // pulls in the state node registrations (NodeFactory)
-#include "FsmActions.h"   // pulls in the action registrations (NodeFactory)
+#include "FsmNodes.h"     // pulls in the state node registrations (DekiNodeGraph::NodeFactory)
+#include "FsmActions.h"   // pulls in the action registrations (DekiNodeGraph::NodeFactory)
 
 #include <deki/assets/AssetManager.h>
 #include <deki/LogSystem.h>
@@ -10,17 +10,20 @@
 #include <fstream>
 #include <vector>
 
+namespace DekiFsm
+{
+
 // Runtime loader for the FsmGraph state-machine asset. Mirrors the plain
 // data-asset loaders: the editor compiles the ".asset" JSON to a MessagePack
 // cache via the generic path, and here we parse that cache with the generic
-// NodeGraphData loader (which creates state/action instances via NodeFactory).
+// DekiNodeGraph::NodeGraphData loader (which creates state/action instances via DekiNodeGraph::NodeFactory).
 // Same path on desktop and device. A malformed graph loads as nullptr, loudly.
 
 namespace
 {
     FsmGraph* LoadGraphFromMemory(const uint8_t* data, size_t size)
     {
-        NodeGraphData* graphData = NodeGraphData::LoadFromMemory(data, size);
+        DekiNodeGraph::NodeGraphData* graphData = DekiNodeGraph::NodeGraphData::LoadFromMemory(data, size);
         if (!graphData)
         {
             DEKI_LOG_ERROR("FsmGraph: failed to load state machine asset");
@@ -56,3 +59,5 @@ namespace
     };
     static _FsmGraphLoaderReg s_fsmGraphLoaderReg;
 }
+
+}  // namespace DekiFsm

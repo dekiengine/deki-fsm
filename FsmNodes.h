@@ -5,6 +5,9 @@
 
 #include "deki-nodegraph/DekiNode.h"
 
+namespace DekiFsm
+{
+
 // Node vocabulary for the state-machine graph ("Fsm" domain).
 //
 // The graph mirrors a script's lifecycle with PARALLEL TRACKS: Awake, Start
@@ -235,3 +238,5 @@ public:
 #include "generated/FsmGroupNode.gen.h"
 #include "generated/FsmGroupInNode.gen.h"
 #include "generated/FsmGroupExitNode.gen.h"
+
+}  // namespace DekiFsm

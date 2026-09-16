@@ -2,6 +2,9 @@
 
 #include "deki-nodegraph/NodeGraphData.h"
 
+namespace DekiFsm
+{
+
 // A state-machine graph as a loadable asset. The .asset (JSON,
 // "type":"FsmGraph") is authored in the editor's Node Graph window and
 // compiled to MessagePack by the generic data-asset path; at runtime the
@@ -15,7 +18,9 @@ struct FsmGraph
     // the editor's node-graph domain registration.
     static constexpr const char* AssetTypeName = "FsmGraph";
 
-    NodeGraphData* data = nullptr;
+    DekiNodeGraph::NodeGraphData* data = nullptr;
 
     ~FsmGraph() { delete data; }
 };
+
+}  // namespace DekiFsm

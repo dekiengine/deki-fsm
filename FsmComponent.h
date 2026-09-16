@@ -11,6 +11,11 @@
 #include <string>
 #include <vector>
 
+namespace Deki2D { class ButtonComponent; }
+
+namespace DekiFsm
+{
+
 // Runs a state-machine graph asset (PlayMaker-style) on the object it sits on.
 //
 // The graph mirrors a script's lifecycle with PARALLEL TRACKS. The three
@@ -50,6 +55,7 @@
 // off until the graph asset is reloaded or reassigned.
 DEKI_CATEGORY("Logic")
 DEKI_DESCRIPTION("Runs a state machine graph asset on this object.")
+DEKI_FORMER_NAME("FsmComponent")
 class FsmComponent : public Deki::Component
 {
 public:
@@ -87,7 +93,7 @@ public:
     // data instance) registers a click callback on `button` that sets the
     // flag; later calls return the same flag. The shared_ptr keeps the flag
     // alive for the callback even if this component dies first.
-    std::shared_ptr<bool> EnsureClickWatch(const void* key, class ButtonComponent* button);
+    std::shared_ptr<bool> EnsureClickWatch(const void* key, Deki2D::ButtonComponent* button);
 
     /**
      * @brief Bind a PropertyRef that targets one of this machine's variables.
@@ -106,24 +112,24 @@ private:
         // Where the track is: the active State node, and the graph that node
         // lives in (which is where its transition wires are looked up — the
         // root, or the inside of a group).
-        const NodeGraphData::NodeInstance* active = nullptr;
-        const NodeGraphData::Graph* graph = nullptr;
+        const DekiNodeGraph::NodeGraphData::NodeInstance* active = nullptr;
+        const DekiNodeGraph::NodeGraphData::Graph* graph = nullptr;
 
         // The groups descended through to reach `active`, outermost first.
         // Each frame remembers the group node AND the graph it sits in, which
         // is exactly what leaving through a Group Exit needs.
         struct GroupFrame
         {
-            const NodeGraphData::Graph* graph = nullptr;
-            const NodeGraphData::NodeInstance* group = nullptr;
+            const DekiNodeGraph::NodeGraphData::Graph* graph = nullptr;
+            const DekiNodeGraph::NodeGraphData::NodeInstance* group = nullptr;
         };
         std::vector<GroupFrame> groups;
 
         // The active state's action flow (its inner graph; null = no actions).
-        const NodeGraphData::Graph* actions = nullptr;
+        const DekiNodeGraph::NodeGraphData::Graph* actions = nullptr;
         // The one action running right now, null once the flow has run off its
         // end (or before it starts). `currentOps` is its registered behavior.
-        const NodeGraphData::NodeInstance* current = nullptr;
+        const DekiNodeGraph::NodeGraphData::NodeInstance* current = nullptr;
         const FsmActionOps* currentOps = nullptr;
 
         // Per-run action state. ONE slot, not one slice per action: a track has
@@ -173,28 +179,28 @@ private:
     };
 
     void ResetMachine();
-    void InitializeMachine(const NodeGraphData& g);
+    void InitializeMachine(const DekiNodeGraph::NodeGraphData& g);
     // Read the graph's Variables node (if any) and allocate this machine's live
     // copies from the declared initial values.
-    void InitializeVariables(const NodeGraphData& g);
+    void InitializeVariables(const DekiNodeGraph::NodeGraphData& g);
 
     // Follow a flow wire to the State it ultimately lands on: descending into
     // any Group it passes through and ascending out of any Group Exit, pushing
     // and popping `groups` to match. Returns nullptr after latching the machine
     // failed. `graph` is in/out: the graph `node` lives in on the way in, the
     // graph the returned State lives in on the way out.
-    const NodeGraphData::NodeInstance* ResolveFlowTarget(
-        const NodeGraphData::Graph*& graph, const NodeGraphData::NodeInstance* node,
+    const DekiNodeGraph::NodeGraphData::NodeInstance* ResolveFlowTarget(
+        const DekiNodeGraph::NodeGraphData::Graph*& graph, const DekiNodeGraph::NodeGraphData::NodeInstance* node,
         Track& track);
 
     // Make `target` (resolved through groups) this track's active state and
     // start its action flow at the Entry node's wire.
-    void EnterState(Track& track, const NodeGraphData::Graph* graph,
-                    const NodeGraphData::NodeInstance* target);
+    void EnterState(Track& track, const DekiNodeGraph::NodeGraphData::Graph* graph,
+                    const DekiNodeGraph::NodeGraphData::NodeInstance* target);
     void ExitState(Track& track);
     // Make `node` the running action: zero the track's state slot and call
     // onEnter. A null node means the flow has run off its end.
-    void BeginAction(Track& track, const NodeGraphData::NodeInstance* node, FsmContext& ctx);
+    void BeginAction(Track& track, const DekiNodeGraph::NodeGraphData::NodeInstance* node, FsmContext& ctx);
     void ProcessEvents();
     void RunActions();
 
@@ -222,4 +228,6 @@ private:
     // once in InitializeVariables and only cleared by ResetMachine.
     std::vector<Variable> m_Variables;
 };
+
+}  // namespace DekiFsm
 
