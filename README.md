@@ -69,7 +69,7 @@ group never changes what the machine does.
 ## Parallel tracks
 
 `Awake`, `Start` and `Update` are permanent lifecycle entries, exactly like the
-hooks of a `Deki::Behaviour`. Each **wired** output begins its own track: an
+hooks of a `Deki::Component`. Each **wired** output begins its own track: an
 independent state flow with its own active state, all running side by side on
 one component, entered in that order. An unwired entry is an unused hook, not an
 error. Custom events broadcast to every track; `FINISHED` is per-track.
@@ -151,3 +151,18 @@ error and stops that machine. No fallbacks.
 
 Requires: `deki-nodegraph`, `deki-2d` (Watch Button), `deki-tween` (Tween
 Property easing).
+
+## Namespace
+
+This package's types live in `DekiFsm`. Scene files store the qualified
+name, so a component is `DekiFsm::SomeComponent` there, and code naming one
+needs the namespace:
+
+```cpp
+using namespace DekiFsm;
+obj->AddComponent<SomeComponent>();
+```
+
+Scenes saved before 0.16.0 used bare names and still load: every component
+records what it used to be called, and a save writes the current name.
+
