@@ -122,7 +122,7 @@ extern "C" {
 
 DEKI_PLUGIN_API const char* DekiPlugin_GetName(void)
 {
-    return "DekiRendering::Deki FSM Package";
+    return "Deki FSM Package";
 }
 
 DEKI_PLUGIN_API const char* DekiPlugin_GetVersion(void)

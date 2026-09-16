@@ -144,7 +144,7 @@ public:
 struct FsmTweenPropertyAction
 {
     DEKI_NODE(FsmTweenPropertyAction, "FsmTweenProperty", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "DekiTween::Tween Property";
+    static constexpr const char* StaticNodeDisplayName = "Tween Property";
     static constexpr const char* StaticNodeDescription = "Ease a numeric field to a new value over time.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")

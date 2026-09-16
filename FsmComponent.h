@@ -62,6 +62,7 @@ public:
     // The state-machine graph. Assign a ".asset" of type "FsmGraph". No asset
     // -> the component idles (nothing to run).
     DEKI_EXPORT
+    DEKI_TOOLTIP("The state machine asset this object runs. Author it in the node graph editor.")
     Deki::AssetRef<FsmGraph> graph;
 
     FsmComponent() = default;

@@ -252,14 +252,14 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmTweenPropertyAction*>(data);
     auto* s = static_cast<TweenState*>(state);
 
-    if (!BindRef(ctx, d->target, "DekiTween::Tween Property", s->binding))
+    if (!BindRef(ctx, d->target, "Tween Property", s->binding))
         return;   // FSM latched
 
     const auto type = static_cast<Deki::PropertyType>(s->binding.info->type);
     if (type != Deki::PropertyType::Float && type != Deki::PropertyType::Double &&
         type != Deki::PropertyType::Vector2)
     {
-        ctx.Fail("DekiTween::Tween Property: only float and Vector2 fields can be tweened");
+        ctx.Fail("Tween Property: only float and Vector2 fields can be tweened");
         return;
     }
 
@@ -267,7 +267,7 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
                               s->binding.number, s->binding.number2))
     {
         char buf[224];
-        std::snprintf(buf, sizeof(buf), "DekiTween::Tween Property: '%s' is not a valid value for field '%s'",
+        std::snprintf(buf, sizeof(buf), "Tween Property: '%s' is not a valid value for field '%s'",
                       d->to.c_str(), d->target.field.c_str());
         ctx.Fail(buf);
         return;
