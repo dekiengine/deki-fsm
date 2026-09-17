@@ -124,7 +124,7 @@ A reference can point at three kinds of thing, all through the same three rows:
 
 - **A component's field** — anything `DEKI_EXPORT`ed, on any object.
 - **The object's own Transform** — `position`, `x`, `y`, `rotation`, `scale`,
-  `scale_x`, `scale_y`, `active`. So "move this object" is Tween Property on
+  `scaleX`, `scaleY`, `active`. So "move this object" is Tween Property on
   Transform / Position rather than a dedicated Move To action, "spin it" is the
   same action on Rotation, and "hide it" is Set Property on Active. `position`
   and `scale` are Vector2 targets that drive both axes in one action.
@@ -151,6 +151,14 @@ error and stops that machine. No fallbacks.
 
 Requires: `deki-nodegraph`, `deki-2d` (Watch Button), `deki-tween` (Tween
 Property easing).
+
+## Dependencies
+
+| Dependency | Type |
+|---|---|
+| `deki-nodegraph` | Deki package |
+| `deki-2d` | Deki package |
+| `deki-tween` | Deki package |
 
 ## Namespace
 
