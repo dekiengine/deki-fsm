@@ -9,6 +9,8 @@
 #include <deki/Scene.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace DekiFsm
@@ -283,6 +285,69 @@ void FsmComponent::InitializeVariables(const DekiNodeGraph::NodeGraphData& g)
                 return;
             }
             m_Variables.push_back(std::move(var));
+        }
+    }
+
+    ApplyVariableOverrides();
+}
+
+// This object's own starting values, over the graph's: one graph, many
+// objects, each tuned in its inspector. "name=value", parsed by the declared
+// type; a name the graph does not declare, or a value that is not of its
+// type, stops the machine (a typo would otherwise silently run the default).
+void FsmComponent::ApplyVariableOverrides()
+{
+    for (const std::string& entry : variableOverrides)
+    {
+        const size_t eq = entry.find('=');
+        const std::string name = eq == std::string::npos ? entry : entry.substr(0, eq);
+        if (eq == std::string::npos || name.empty())
+        {
+            char buf[192];
+            std::snprintf(buf, sizeof(buf), "variable override '%s' is not name=value", entry.c_str());
+            FailFsm(buf);
+            return;
+        }
+        const std::string value = entry.substr(eq + 1);
+        const uint32_t hash = Deki::HashString(name.c_str());
+
+        Variable* var = nullptr;
+        for (Variable& v : m_Variables)
+            if (v.nameHash == hash)
+                var = &v;
+        if (!var)
+        {
+            char buf[192];
+            std::snprintf(buf, sizeof(buf), "variable override '%s': the graph declares no variable '%s'",
+                          entry.c_str(), name.c_str());
+            FailFsm(buf);
+            return;
+        }
+
+        bool ok = true;
+        if (var->type == Deki::PropertyType::String)
+        {
+            var->text = value;
+        }
+        else if (var->type == Deki::PropertyType::Bool)
+        {
+            ok = (value == "true" || value == "false" || value == "1" || value == "0");
+            var->number = (value == "true" || value == "1") ? 1.0f : 0.0f;
+        }
+        else
+        {
+            char* end = nullptr;
+            const float number = std::strtof(value.c_str(), &end);
+            ok = !value.empty() && end != nullptr && *end == '\0';
+            var->number = number;
+        }
+        if (!ok)
+        {
+            char buf[192];
+            std::snprintf(buf, sizeof(buf), "variable override '%s': '%s' is not a value of the variable's type",
+                          entry.c_str(), value.c_str());
+            FailFsm(buf);
+            return;
         }
     }
 }

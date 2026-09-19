@@ -8,6 +8,20 @@ breaking change bumps the minor across the editor, the engine and every
 package together, so a package with no changes of its own is still released
 alongside one that has them.
 
+## Unreleased
+
+### Added
+- **One graph, many objects.** `FsmComponent.variableOverrides` gives this
+  object its own starting values for the graph's variables, one `name=value`
+  per entry. An unknown name or a value of the wrong type stops the machine.
+- **Actions take numbers from variables.** Wait `secondsVariable`, Tween
+  Property `toVariable` and `durationVariable`, Set Property `valueVariable`,
+  Modify Property `operandVariable`: when set, the named Number variable's
+  value, read as the action starts, replaces the typed literal. Together with
+  the overrides, a behaviour such as a bobbing sine wave is one graph that
+  every object tunes (deki-demo's `assets/fsm/bob.asset` replaces its C++
+  Bobber this way).
+
 ## 0.16.0
 
 ### Changed

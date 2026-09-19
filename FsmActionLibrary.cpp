@@ -111,21 +111,83 @@ void BindOrFail(FsmContext& ctx, const Deki::PropertyRef& ref, const std::string
     s->bound = 1;
 }
 
+// A number an action takes from a graph variable instead of its literal (its
+// "...Variable" field, see FsmActions.h). Read once, as the action starts.
+// False after the FSM latched: no such variable, or not a number.
+bool ReadNumberVariable(FsmContext& ctx, const std::string& name, const char* actionName, double& out)
+{
+    Deki::PropertyRef ref;
+    ref.component = Deki::kVariableRefComponent;
+    ref.field = name;
+    ref.Rehash();
+    Deki::PropertyBinding b;
+    if (!ctx.fsm || !ctx.fsm->BindVariable(ref, b))
+        return false;   // latched, naming the variable
+    if (static_cast<Deki::PropertyType>(b.info->type) == Deki::PropertyType::String)
+    {
+        char buf[192];
+        std::snprintf(buf, sizeof(buf), "%s: variable '%s' is text, and this takes a number", actionName,
+                      name.c_str());
+        ctx.Fail(buf);
+        return false;
+    }
+    out = ReadBoundProperty(b);
+    return true;
+}
+
+// BindOrFail, with the operand taken from `variable` when one is named.
+void BindOrFailFrom(FsmContext& ctx, const Deki::PropertyRef& ref, const std::string& literal,
+                    const std::string& variable, const char* actionName, BoundState* s)
+{
+    if (variable.empty())
+    {
+        BindOrFail(ctx, ref, literal, actionName, s);
+        return;
+    }
+    if (!BindRef(ctx, ref, actionName, s->binding))
+        return;
+    const auto type = static_cast<Deki::PropertyType>(s->binding.info->type);
+    if (type == Deki::PropertyType::String || type == Deki::PropertyType::Vector2)
+    {
+        char buf[224];
+        std::snprintf(buf, sizeof(buf), "%s: a variable gives one number, and field '%s' is not a number",
+                      actionName, ref.field.c_str());
+        ctx.Fail(buf);
+        return;
+    }
+    if (!ReadNumberVariable(ctx, variable, actionName, s->binding.number))
+        return;
+    s->bound = 1;
+}
+
 // ---------------------------------------------------------------------------
 // Wait
 // ---------------------------------------------------------------------------
 
-struct WaitState { float elapsed; };
+struct WaitState { float elapsed; float seconds; };
 
-int Wait_Update(const void* data, void* state, FsmContext& ctx)
+void Wait_Enter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmWaitAction*>(data);
     auto* s = static_cast<WaitState*>(state);
-    s->elapsed += ctx.dt;
-    return s->elapsed >= d->seconds ? kDone : kFsmActionRunning;
+    s->seconds = d->seconds;
+    if (!d->secondsVariable.empty())
+    {
+        double seconds = 0.0;
+        if (ReadNumberVariable(ctx, d->secondsVariable, "Wait", seconds))
+            s->seconds = static_cast<float>(seconds);
+    }
 }
 
-const FsmActionOps kWaitOps = { sizeof(WaitState), nullptr, &Wait_Update, nullptr };
+int Wait_Update(const void* data, void* state, FsmContext& ctx)
+{
+    (void)data;
+    auto* s = static_cast<WaitState*>(state);
+    s->elapsed += ctx.dt;
+    return s->elapsed >= s->seconds ? kDone : kFsmActionRunning;
+}
+
+const FsmActionOps kWaitOps = { sizeof(WaitState), &Wait_Enter, &Wait_Update, nullptr };
 
 // ---------------------------------------------------------------------------
 // Send Event
@@ -163,7 +225,7 @@ const FsmActionOps kSendEventOps = { sizeof(SendEventState), nullptr, &SendEvent
 void SetProperty_Enter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSetPropertyAction*>(data);
-    BindOrFail(ctx, d->target, d->value, "Set Property", static_cast<BoundState*>(state));
+    BindOrFailFrom(ctx, d->target, d->value, d->valueVariable, "Set Property", static_cast<BoundState*>(state));
 }
 
 int SetProperty_Update(const void* data, void* state, FsmContext& ctx)
@@ -174,7 +236,11 @@ int SetProperty_Update(const void* data, void* state, FsmContext& ctx)
         return kDone;   // FSM latched in onEnter
 
     // Everything expensive already happened at bind time: this is a store.
-    WriteBoundProperty(s->binding, d->value);
+    // A value read from a variable is a number, not text to parse.
+    if (d->valueVariable.empty())
+        WriteBoundProperty(s->binding, d->value);
+    else
+        WriteBoundNumbers(s->binding, s->binding.number, s->binding.number2);
     s->flag = 1;
     return d->everyFrame ? kFsmActionRunning : kDone;   // everyFrame parks the flow
 }
@@ -243,6 +309,7 @@ struct TweenState
     Deki::PropertyBinding binding;
     uint8_t bound;
     float elapsed;
+    float duration;  // `duration`, or durationVariable's value at the start
     double start;    // first axis
     double start2;   // second axis (Vector2 targets)
 };
@@ -263,14 +330,33 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
         return;
     }
 
-    if (!ParsePropertyLiteral(*s->binding.info, d->to.c_str(),
-                              s->binding.number, s->binding.number2))
+    if (!d->toVariable.empty())
+    {
+        if (type == Deki::PropertyType::Vector2)
+        {
+            ctx.Fail("Tween Property: toVariable gives one number, and a Vector2 field needs two");
+            return;
+        }
+        if (!ReadNumberVariable(ctx, d->toVariable, "Tween Property", s->binding.number))
+            return;
+    }
+    else if (!ParsePropertyLiteral(*s->binding.info, d->to.c_str(),
+                                   s->binding.number, s->binding.number2))
     {
         char buf[224];
         std::snprintf(buf, sizeof(buf), "Tween Property: '%s' is not a valid value for field '%s'",
                       d->to.c_str(), d->target.field.c_str());
         ctx.Fail(buf);
         return;
+    }
+
+    s->duration = d->duration;
+    if (!d->durationVariable.empty())
+    {
+        double duration = 0.0;
+        if (!ReadNumberVariable(ctx, d->durationVariable, "Tween Property", duration))
+            return;
+        s->duration = static_cast<float>(duration);
     }
 
     s->start = ReadBoundProperty(s->binding);
@@ -289,7 +375,7 @@ int Tween_Update(const void* data, void* state, FsmContext& ctx)
     const double end2 = d->relative ? s->start2 + s->binding.number2 : s->binding.number2;
 
     s->elapsed += ctx.dt;
-    float u = d->duration > 0.0f ? s->elapsed / d->duration : 1.0f;
+    float u = s->duration > 0.0f ? s->elapsed / s->duration : 1.0f;
     if (u > 1.0f) u = 1.0f;
     const float e = DekiTween::Ease::GetFunction(d->ease)(u);
 
@@ -309,7 +395,7 @@ void Modify_Enter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmModifyPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
-    BindOrFail(ctx, d->target, d->operand, "Modify Property", s);
+    BindOrFailFrom(ctx, d->target, d->operand, d->operandVariable, "Modify Property", s);
     if (!s->bound)
         return;
 

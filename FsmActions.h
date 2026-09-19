@@ -46,6 +46,14 @@ namespace DekiFsm
 // instead of typing the name); the stored value stays the plain name, so one
 // graph still drives every scene that uses the same object names.
 
+// VARIABLES AS PARAMETERS. A number an action takes - a Wait's seconds, a
+// tween's duration and amount, a Set's value, a Modify's operand - can come from
+// a graph variable instead: its "...Variable" field names a Number variable, and
+// when it is set that variable's value, read as the action STARTS, replaces the
+// typed literal. So one graph serves many objects, each giving it different
+// numbers through FsmComponent::variableOverrides. An unknown name stops the
+// machine. Empty = the literal, as before.
+
 // Comparison operator for Compare Property.
 enum class FsmCompareOp : uint8_t
 {
@@ -77,6 +85,7 @@ struct FsmWaitAction
     DEKI_NODE_OUTPUTS("done")
 public:
     DEKI_EXPORT float seconds = 1.0f;
+    DEKI_EXPORT std::string secondsVariable;
 };
 
 // Raise an event on this FSM (optionally after a delay), then continue. The
@@ -109,6 +118,7 @@ struct FsmSetPropertyAction
 public:
     DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string value;
+    DEKI_EXPORT std::string valueVariable;
     DEKI_EXPORT bool everyFrame = false;
 };
 
@@ -151,7 +161,9 @@ struct FsmTweenPropertyAction
 public:
     DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string to;
+    DEKI_EXPORT std::string toVariable;
     DEKI_EXPORT float duration = 1.0f;
+    DEKI_EXPORT std::string durationVariable;
     DEKI_EXPORT DekiTween::EaseType ease = DekiTween::EaseType::Linear;
     DEKI_EXPORT bool relative = false;
 };
@@ -171,6 +183,7 @@ public:
     DEKI_EXPORT Deki::PropertyRef target;
     DEKI_EXPORT FsmMathOp operation = FsmMathOp::Add;
     DEKI_EXPORT DEKI_VALUE_OF(target) std::string operand;
+    DEKI_EXPORT std::string operandVariable;
     DEKI_EXPORT bool everyFrame = false;
 };
 

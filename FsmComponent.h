@@ -65,6 +65,15 @@ public:
     DEKI_TOOLTIP("The state machine asset this object runs. Author it in the node graph editor.")
     Deki::AssetRef<FsmGraph> graph;
 
+    // This object's own starting values for the graph's variables, one
+    // "name=value" per entry, applied over the values the graph declares. One
+    // graph then serves many objects, each tuned here - a row of bobbing coins
+    // with different phases, say. An unknown name or a value of the wrong type
+    // stops the machine.
+    DEKI_EXPORT
+    DEKI_TOOLTIP("This object's own starting values for the graph's variables, as name=value (e.g. speedHz=0.625).")
+    std::vector<std::string> variableOverrides;
+
     FsmComponent() = default;
 
     void Awake() override;
@@ -184,6 +193,8 @@ private:
     // Read the graph's Variables node (if any) and allocate this machine's live
     // copies from the declared initial values.
     void InitializeVariables(const DekiNodeGraph::NodeGraphData& g);
+    // Apply variableOverrides over the declared initial values.
+    void ApplyVariableOverrides();
 
     // Follow a flow wire to the State it ultimately lands on: descending into
     // any Group it passes through and ascending out of any Group Exit, pushing

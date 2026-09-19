@@ -111,6 +111,23 @@ actions: a score counter is **Modify Property** on a variable, "is the score
 10?" is **Compare Property** on the same one, and copying a variable into a
 `TextComponent` is **Set Property**.
 
+### One graph, many objects
+
+An `FsmComponent`'s **Variable Overrides** give that object its own starting
+values, one `name=value` per entry (`speedHz=0.625`), applied over the values
+the graph declares. An unknown name or a value of the wrong type stops the
+machine.
+
+The numbers an action takes can come from variables too: **Wait**
+`secondsVariable`, **Tween Property** `toVariable` / `durationVariable`,
+**Set Property** `valueVariable`, **Modify Property** `operandVariable`. When
+one is set, the named Number variable's value, read as the action starts,
+replaces the typed literal. So a behaviour is one graph that every object
+tunes: deki-demo's `assets/fsm/bob.asset` is its C++ Bobber as a state
+machine - a Setup state derives the period, the tween amounts and the phase
+lead-in from `amplitude`, `speedHz` and `phase`, then a Bob state loops three
+relative sine-eased tweens on Transform/y.
+
 ## Targets, not bespoke verbs
 
 Set Property, Compare Property and Tween Property all address their target the
