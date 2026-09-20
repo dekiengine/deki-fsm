@@ -1,16 +1,16 @@
 # deki-fsm
 
-Documentation: https://dekiengine.github.io/deki-fsm/ (components and properties, generated from the code)
+Docs: https://dekiengine.github.io/deki-fsm/ (components and properties, generated from the code)
 
 PlayMaker-style finite state machines for Deki Engine.
 
-Put an `FsmComponent` on any object and assign it a **State Machine** asset
+Put an `FsmComponent` on an object and give it a **State Machine** asset
 (`FsmGraph`), authored in the editor's Node Graph window.
 
 ## Two levels of canvas
 
-A graph is a tree of canvases, and you move between them by **double-clicking a
-node**; the breadcrumb above the canvas walks back out.
+A graph is a tree of canvases. Double-click a node to go in, use the
+breadcrumb to come back out.
 
 - **The root** is the flow: `Awake` / `Start` / `Update` entries, **States**,
   **Groups**, and the transition wires between them.
@@ -34,19 +34,18 @@ Nothing runs from a hidden list. If it runs, it is a node on some canvas.
 Double-click a state to open its flow. It starts at the permanent **Entry**
 node and follows the wires:
 
-- Every action has one input and one or more **output pins**. When an action
-  finishes it reports which pin it finished on, and control moves to whatever
-  that pin is wired to. A run of instant actions completes in one frame.
+- Every action has one input and one or more **output pins**. It finishes on
+  one of them, and control moves to whatever that pin is wired to. A run of
+  instant actions completes in one frame.
 - **Branching is pins, not events.** Compare Property has a `true` pin and a
   `false` pin; wire each to a different action. There are no `eventIfTrue`-style
   fields anywhere in the library.
-- A flow is a graph, so it may **loop**. Re-entering an action resets its
-  runtime state exactly as if it were entered for the first time. A loop with
-  nothing time-consuming in it trips a guard at 256 steps in one frame.
+- Flows can **loop**. Re-entering an action resets it as if it were the first
+  time. A loop with nothing slow in it hits a guard at 256 steps per frame.
 - An action that never finishes (Watch Button, anything with `everyFrame` on)
-  **parks** the flow on itself, and nothing downstream runs. That is how a
-  per-frame watcher is written: park on it, in a state of its own, typically on
-  a track wired from `Update`.
+  **parks** the flow on itself and nothing downstream runs. That is how you
+  write a per-frame watcher: park on it, in its own state, on a track wired
+  from `Update`.
 - Running off an **unwired** pin ends the flow and raises `FINISHED`. An empty
   flow (Entry wired to nothing) is a legitimate "just wait for an event" state.
 
@@ -62,17 +61,16 @@ states inside.
   the group's `exits` list. Wire a state's transition to an Exit and the flow
   leaves the group through the matching pin outside.
 
-Groups nest, run no actions of their own, and cost nothing at runtime. Entering
-one continues straight through Group In; collapsing part of a machine into a
-group never changes what the machine does.
+Groups nest, run no actions themselves and cost nothing at runtime.
+Collapsing part of a machine into a group never changes what it does.
 
 ## Parallel tracks
 
-`Awake`, `Start` and `Update` are permanent lifecycle entries, exactly like the
-hooks of a `Deki::Component`. Each **wired** output begins its own track: an
-independent state flow with its own active state, all running side by side on
-one component, entered in that order. An unwired entry is an unused hook, not an
-error. Custom events broadcast to every track; `FINISHED` is per-track.
+`Awake`, `Start` and `Update` are permanent entries, the same hooks as a
+`Deki::Component`. Each wired output starts its own track: an independent flow
+with its own active state, all running side by side, entered in that order. An
+unwired entry is just an unused hook. Custom events reach every track,
+`FINISHED` is per-track.
 
 ## Actions
 
@@ -93,65 +91,55 @@ error. Custom events broadcast to every track; `FINISHED` is per-track.
 | **Watch Button** | Park until the button is clicked. The input-to-transition bridge: wire `clicked` to a Send Event. | clicked |
 | **Log** | Write a line to the console. Print-debugging for graphs. | done |
 
-Not covered yet: audio (the audio package only exposes raw PCM, with no sound
-asset type to point an action at) and physics (there is no physics package).
+Missing: audio (the audio package only has raw PCM, nothing an action can
+point at) and physics (no physics package yet).
 
 ## Variables
 
-The **Variables** node (permanent, one per graph, at the root) holds the graph's
-variables as a child stack in its inspector: add a Number, Bool or Text entry
-and give it a name and an initial value. Variables belong to the whole document,
-so they are reachable from inside every state's action flow and every group.
-Each `FsmComponent` gets its own live copy, so two objects running the same
-graph never share state.
+The **Variables** node (one per graph, at the root) holds them: add a Number,
+Bool or Text entry with a name and a starting value. They are visible from
+every flow and group in the document, and each `FsmComponent` gets its own
+copy, so two objects running the same graph never share state.
 
-Variables are addressed by the *same* PropertyRef as everything else (component
-"Variable", field = the name), which is why there are no variable-specific
-actions: a score counter is **Modify Property** on a variable, "is the score
-10?" is **Compare Property** on the same one, and copying a variable into a
-`TextComponent` is **Set Property**.
+Variables use the same PropertyRef as everything else (component "Variable",
+field = the name), so there are no variable-specific actions. A score counter
+is **Modify Property** on a variable, "is the score 10?" is **Compare
+Property** on it, and copying it into a `TextComponent` is **Set Property**.
 
 ### One graph, many objects
 
-An `FsmComponent`'s **Variable Overrides** give that object its own starting
-values, one `name=value` per entry (`speedHz=0.625`), applied over the values
-the graph declares. An unknown name or a value of the wrong type stops the
-machine.
+**Variable Overrides** on an `FsmComponent` give that object its own starting
+values, one `name=value` per entry (`speedHz=0.625`). An unknown name or a
+wrong type stops the machine.
 
-The numbers an action takes can come from variables too: **Wait**
-`secondsVariable`, **Tween Property** `toVariable` / `durationVariable`,
-**Set Property** `valueVariable`, **Modify Property** `operandVariable`. When
-one is set, the named Number variable's value, read as the action starts,
-replaces the typed literal. So a behaviour is one graph that every object
-tunes: deki-demo's `assets/fsm/bob.asset` is its C++ Bobber as a state
-machine - a Setup state derives the period, the tween amounts and the phase
-lead-in from `amplitude`, `speedHz` and `phase`, then a Bob state loops three
-relative sine-eased tweens on Transform/y.
+Actions can read their numbers from variables too: **Wait** `secondsVariable`,
+**Tween Property** `toVariable` / `durationVariable`, **Set Property**
+`valueVariable`, **Modify Property** `operandVariable`. The variable is read
+when the action starts and replaces the typed literal. One graph, tuned per
+object: deki-demo's `assets/fsm/bob.asset` is its C++ Bobber as a state
+machine, driven entirely by `amplitude`, `speedHz` and `phase`.
 
-## Targets, not bespoke verbs
+## Targets
 
-Set Property, Compare Property and Tween Property all address their target the
-same way: a **PropertyRef**, picked in the inspector as three dropdowns —
-object, then component, then field. There is no typing of class names, so an
-invalid reference cannot be authored, and the value editor below it becomes
-typed to whatever you picked (a drag field for a float, a checkbox for a bool, a
-dropdown for an enum, two drags for a Vector2).
+Set Property, Compare Property and Tween Property all pick their target the
+same way: a **PropertyRef**, three dropdowns in the inspector - object,
+component, field. You never type a class name, so you cannot author a broken
+reference, and the value editor under it matches the type you picked.
 
-A reference can point at three kinds of thing, all through the same three rows:
+A reference points at one of three things:
 
-- **A component's field** — anything `DEKI_EXPORT`ed, on any object.
-- **The object's own Transform** — `position`, `x`, `y`, `rotation`, `scale`,
-  `scaleX`, `scaleY`, `active`. So "move this object" is Tween Property on
-  Transform / Position rather than a dedicated Move To action, "spin it" is the
-  same action on Rotation, and "hide it" is Set Property on Active. `position`
-  and `scale` are Vector2 targets that drive both axes in one action.
-- **A graph variable** — see above.
+- **A component's field** - anything `DEKI_EXPORT`ed, on any object.
+- **The object's Transform** - `position`, `x`, `y`, `rotation`, `scale`,
+  `scaleX`, `scaleY`, `active`. So "move it" is Tween Property on
+  Transform/Position instead of a Move To action, "spin it" is the same action
+  on Rotation, "hide it" is Set Property on Active. `position` and `scale` take
+  both axes at once.
+- **A graph variable** - see above.
 
-Each reference is resolved **once**, when the action starts: object lookup,
-field lookup and literal parsing all happen there, so the per-frame path is a
-store or a compare through a cached pointer. Nothing touches a string while a
-state is running, which is what makes the action set cheap enough for the
-ESP32-S3.
+References resolve **once**, when the action starts: object lookup, field
+lookup and parsing all happen there. After that it is a store or a compare
+through a cached pointer, with no strings touched while the machine runs.
+That is what keeps it cheap enough for an ESP32-S3.
 
 ## Adding your own actions
 
@@ -161,10 +149,10 @@ and register runtime ops with `REGISTER_FSM_ACTION` (see `FsmActionRegistry.h`).
 `onUpdate` returns `kFsmActionRunning` while the action is still going, else the
 index of the output pin it finished on.
 
-Failure policy: a broken graph (nothing wired to run, a wire into a node that is
-not a State/Group/Group Exit, an unwired transition or group exit, an unknown
-action, a bad target or property name, an event or action-flow storm) logs one
-error and stops that machine. No fallbacks.
+A broken graph logs one error and stops that machine. No fallbacks. Broken
+means: nothing wired to run, a wire into something that is not a
+State/Group/Group Exit, an unwired transition or exit, an unknown action, a
+bad target or property name, or an event storm.
 
 Requires: `deki-nodegraph`, `deki-2d` (Watch Button), `deki-tween` (Tween
 Property easing).
@@ -179,15 +167,12 @@ Property easing).
 
 ## Namespace
 
-This package's types live in `DekiFsm`. Scene files store the qualified
-name, so a component is `DekiFsm::SomeComponent` there, and code naming one
-needs the namespace:
+Types live in `DekiFsm`. Scene files store the qualified name, and so does code:
 
 ```cpp
 using namespace DekiFsm;
 obj->AddComponent<SomeComponent>();
 ```
 
-Scenes saved before 0.16.0 used bare names and still load: every component
-records what it used to be called, and a save writes the current name.
+Scenes saved before 0.16.0 used bare names and still load; saving writes the current one.
 
