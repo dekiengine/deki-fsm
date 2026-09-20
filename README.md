@@ -91,8 +91,8 @@ unwired entry is just an unused hook. Custom events reach every track,
 | **Watch Button** | Park until the button is clicked. The input-to-transition bridge: wire `clicked` to a Send Event. | clicked |
 | **Log** | Write a line to the console. Print-debugging for graphs. | done |
 
-Missing: audio (the audio package only has raw PCM, nothing an action can
-point at) and physics (no physics package yet).
+Audio and physics actions arrive when there is something to point them at:
+the audio package is raw PCM today, and physics is still to come.
 
 ## Variables
 
