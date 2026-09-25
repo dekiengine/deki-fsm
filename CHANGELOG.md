@@ -10,6 +10,10 @@ alongside one that has them.
 
 ## Unreleased
 
+### Fixed
+- A state machine asset loads on a device: its loader opened the path with
+  `std::ifstream`, which cannot open `F:/` or `S:/`.
+
 ### Added
 - **One graph, many objects.** `FsmComponent.variableOverrides` gives this
   object its own starting values for the graph's variables, one `name=value`
