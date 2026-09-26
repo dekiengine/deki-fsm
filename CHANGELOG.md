@@ -10,6 +10,10 @@ alongside one that has them.
 
 ## Unreleased
 
+### Changed
+- The asset file is read into an External Deki::Buffer while it is parsed,
+  not a std::vector on the internal heap.
+
 ### Fixed
 - A state machine asset loads on a device: its loader opened the path with
   `std::ifstream`, which cannot open `F:/` or `S:/`.

@@ -42,10 +42,12 @@ namespace
             // device (F:/assets/..., S:/...), which a std::ifstream cannot open.
             auto pathLoader = [](const char* p) -> void*
             {
-                std::vector<uint8_t> buf;
-                if (!Deki::AssetManager::ReadWholeFile(p, buf))
+                // External, not a std::vector on the internal heap: the file
+                // is only held while it is parsed.
+                Deki::Buffer<uint8_t> buf;
+                if (!Deki::AssetManager::ReadWholeFile(p, buf, Deki::Memory::External))
                     return nullptr;
-                return LoadGraphFromMemory(buf.data(), buf.size());
+                return LoadGraphFromMemory(buf.Data(), buf.Count());
             };
             auto unloader  = [](void* a) { delete static_cast<FsmGraph*>(a); };
             auto memLoader = [](const uint8_t* d, size_t n) -> void* { return LoadGraphFromMemory(d, n); };
