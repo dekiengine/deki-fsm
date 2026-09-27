@@ -34,28 +34,33 @@ namespace
         return graph;
     }
 
-    struct _FsmGraphLoaderReg
-    {
-        _FsmGraphLoaderReg()
-        {
-            // Through the engine's filesystem: the path is a virtual one on a
-            // device (F:/assets/..., S:/...), which a std::ifstream cannot open.
-            auto pathLoader = [](const char* p) -> void*
-            {
-                // External, not a std::vector on the internal heap: the file
-                // is only held while it is parsed.
-                Deki::Buffer<uint8_t> buf;
-                if (!Deki::AssetManager::ReadWholeFile(p, buf, Deki::Memory::External))
-                    return nullptr;
-                return LoadGraphFromMemory(buf.Data(), buf.Count());
-            };
-            auto unloader  = [](void* a) { delete static_cast<FsmGraph*>(a); };
-            auto memLoader = [](const uint8_t* d, size_t n) -> void* { return LoadGraphFromMemory(d, n); };
+    bool s_GraphLoaderRegistered = false;
+}
 
-            Deki::AssetManager::RegisterLoader("FsmGraph", pathLoader, unloader, memLoader);
-        }
+// Called, not a static registrar: a firmware links the game from an archive,
+// and the linker drops an object nothing references, registrar and all. That
+// is how FsmGraph assets went unloadable on the device.
+void RegisterGraphLoader()
+{
+    if (s_GraphLoaderRegistered)
+        return;
+    s_GraphLoaderRegistered = true;
+
+    // Through the engine's filesystem: the path is a virtual one on a
+    // device (F:/assets/..., S:/...), which a std::ifstream cannot open.
+    auto pathLoader = [](const char* p) -> void*
+    {
+        // External, not a std::vector on the internal heap: the file
+        // is only held while it is parsed.
+        Deki::Buffer<uint8_t> buf;
+        if (!Deki::AssetManager::ReadWholeFile(p, buf, Deki::Memory::External))
+            return nullptr;
+        return LoadGraphFromMemory(buf.Data(), buf.Count());
     };
-    static _FsmGraphLoaderReg s_fsmGraphLoaderReg;
+    auto unloader  = [](void* a) { delete static_cast<FsmGraph*>(a); };
+    auto memLoader = [](const uint8_t* d, size_t n) -> void* { return LoadGraphFromMemory(d, n); };
+
+    Deki::AssetManager::RegisterLoader("FsmGraph", pathLoader, unloader, memLoader);
 }
 
 }  // namespace DekiFsm

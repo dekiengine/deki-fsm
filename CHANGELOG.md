@@ -17,6 +17,15 @@ alongside one that has them.
 ### Fixed
 - A state machine asset loads on a device: its loader opened the path with
   `std::ifstream`, which cannot open `F:/` or `S:/`.
+- **State machines run on a device.** The graph loader and the built-in
+  actions registered themselves from static objects in files nothing else
+  referenced, and a firmware links the game from an archive, so the linker
+  dropped them: graphs failed with "No loader registered for asset type:
+  FsmGraph" and then "a node with no registered runtime ops". Both are now
+  registered by `DekiFsm_InitSystem()` (`FsmInit.h`), which the generated
+  firmware and simulator code call, and by `DekiPlugin_Init` in the editor.
+  A project's own `REGISTER_FSM_ACTION` in a file nothing else references
+  still has this problem on a device.
 
 ### Added
 - **One graph, many objects.** `FsmComponent.variableOverrides` gives this

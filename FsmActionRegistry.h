@@ -89,6 +89,10 @@ private:
     std::unordered_map<uint32_t, FsmActionOps> m_Ops;
 };
 
+// Registers this package's own actions (FsmActionLibrary.cpp). Called from
+// DekiFsm_InitSystem.
+void RegisterActionLibrary();
+
 // Register runtime ops for an action struct (place at file scope in a .cpp,
 // next to the callbacks). ClassName must be a DEKI_NODE type; the key is the
 // hash of its node name, matching what the graph loader stores.

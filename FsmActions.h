@@ -15,8 +15,8 @@ namespace DekiFsm
 // category "Fsm/Actions" — FsmStateNode's SUBGRAPH category, so these are
 // authored on the canvas INSIDE a state (double-click a state to descend into
 // its action flow), never at the graph root. Runtime behavior is registered
-// separately in FsmActionLibrary.cpp via REGISTER_FSM_ACTION; project DLLs add
-// game-specific actions the same way.
+// separately, by RegisterActionLibrary() in FsmActionLibrary.cpp; project DLLs
+// add game-specific actions with REGISTER_FSM_ACTION.
 //
 // PINS. Every action has one input ("in") and one or more outputs. A state's
 // flow starts at its Entry node and follows the wires: when an action finishes

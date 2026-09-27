@@ -754,21 +754,38 @@ const FsmActionOps kWatchButtonOps = { sizeof(WatchButtonState), &WatchButton_En
 
 // ---------------------------------------------------------------------------
 // Registration (typeId = hash of the node name, as stored by the graph loader)
+//
+// Called from DekiFsm_InitSystem rather than done by REGISTER_FSM_ACTION
+// statics: a firmware links the game from an archive, and the linker drops an
+// object nothing references, registrars and all, which left every action
+// without runtime ops on the device.
 // ---------------------------------------------------------------------------
 
-REGISTER_FSM_ACTION(FsmWaitAction, kWaitOps);
-REGISTER_FSM_ACTION(FsmSendEventAction, kSendEventOps);
-REGISTER_FSM_ACTION(FsmSetPropertyAction, kSetPropertyOps);
-REGISTER_FSM_ACTION(FsmComparePropertyAction, kCompareOps);
-REGISTER_FSM_ACTION(FsmModifyPropertyAction, kModifyOps);
-REGISTER_FSM_ACTION(FsmRandomPropertyAction, kRandomOps);
-REGISTER_FSM_ACTION(FsmTweenPropertyAction, kTweenOps);
-REGISTER_FSM_ACTION(FsmSpawnSceneAction, kSpawnOps);
-REGISTER_FSM_ACTION(FsmDestroyObjectAction, kDestroyOps);
-REGISTER_FSM_ACTION(FsmSetParentAction, kSetParentOps);
-REGISTER_FSM_ACTION(FsmPlayAnimationAction, kPlayAnimOps);
-REGISTER_FSM_ACTION(FsmSendEventToAction, kSendEventToOps);
-REGISTER_FSM_ACTION(FsmLogAction, kLogOps);
-REGISTER_FSM_ACTION(FsmWatchButtonAction, kWatchButtonOps);
+namespace
+{
+template <typename Action>
+void Add(const FsmActionOps& ops)
+{
+    FsmActionRegistry::Instance().Register(::Deki::HashString(Action::StaticNodeName), ops);
+}
+}  // namespace
+
+void RegisterActionLibrary()
+{
+    Add<FsmWaitAction>(kWaitOps);
+    Add<FsmSendEventAction>(kSendEventOps);
+    Add<FsmSetPropertyAction>(kSetPropertyOps);
+    Add<FsmComparePropertyAction>(kCompareOps);
+    Add<FsmModifyPropertyAction>(kModifyOps);
+    Add<FsmRandomPropertyAction>(kRandomOps);
+    Add<FsmTweenPropertyAction>(kTweenOps);
+    Add<FsmSpawnSceneAction>(kSpawnOps);
+    Add<FsmDestroyObjectAction>(kDestroyOps);
+    Add<FsmSetParentAction>(kSetParentOps);
+    Add<FsmPlayAnimationAction>(kPlayAnimOps);
+    Add<FsmSendEventToAction>(kSendEventToOps);
+    Add<FsmLogAction>(kLogOps);
+    Add<FsmWatchButtonAction>(kWatchButtonOps);
+}
 
 }  // namespace DekiFsm

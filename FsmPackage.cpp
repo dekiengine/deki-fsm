@@ -10,6 +10,7 @@
 
 #include <deki/interop/Plugin.h>
 #include "FsmPackage.h"
+#include "FsmInit.h"
 #include "FsmComponent.h"
 #include "FsmNodes.h"
 #include "FsmActions.h"
@@ -136,6 +137,7 @@ DEKI_PLUGIN_API const char* DekiPlugin_GetVersion(void)
 
 DEKI_PLUGIN_API int DekiPlugin_Init(void)
 {
+    DekiFsm_InitSystem();
     return 0;
 }
 

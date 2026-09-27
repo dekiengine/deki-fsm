@@ -23,4 +23,9 @@ struct FsmGraph
     ~FsmGraph() { delete data; }
 };
 
+// Registers the FsmGraph asset loader. Idempotent. Called from
+// DekiFsm_InitSystem (FsmInit.h), which is also what gets FsmGraphAsset.cpp,
+// with the state and action registrations it includes, into a firmware.
+void RegisterGraphLoader();
+
 }  // namespace DekiFsm
