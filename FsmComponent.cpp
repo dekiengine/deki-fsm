@@ -32,24 +32,24 @@ constexpr uint32_t kGroupInId = Deki::HashString("FsmGroupIn");
 constexpr uint32_t kGroupExitId = Deki::HashString("FsmGroupExit");
 
 // Variables. The runtime matches these by type id and casts to the concrete
-// struct: DekiNodeGraph::DekiNodeMeta / DekiNodeGraph::NodeTypeRegistry are editor-only, so nothing here
-// may go through reflection (the DEKI_NODE_VARIABLES marker exists for the
-// editor's pickers, not for this path).
+// struct. DekiNodeGraph::DekiNodeMeta and NodeTypeRegistry are editor-only, so
+// nothing here may use reflection (the DEKI_NODE_VARIABLES marker is for the
+// editor's pickers).
 constexpr uint32_t kVariablesId = Deki::HashString("FsmVariables");
 constexpr uint32_t kNumberVarId = Deki::HashString("FsmNumberVar");
 constexpr uint32_t kBoolVarId = Deki::HashString("FsmBoolVar");
 constexpr uint32_t kTextVarId = Deki::HashString("FsmTextVar");
 
-// Event-transition storm guard (machine-wide): a graph whose states hand
-// an event around in a cycle would otherwise spin forever within a frame.
+// Limit on transitions per frame, for the whole machine: states that pass an
+// event around in a cycle would otherwise spin forever within a frame.
 constexpr int kMaxTransitionsPerFrame = 16;
 
-// Same idea one level down: an action flow may legally loop, so a ring of
-// instant actions would otherwise never yield the frame.
+// The same one level down: an action flow may loop, so a ring of instant
+// actions would otherwise never end the frame.
 constexpr int kMaxActionStepsPerFrame = 256;
 
-// Groups and exits are resolved by walking, and a group whose In leads to
-// another group leads to another... this bounds that walk.
+// Groups and exits are resolved by walking, and a group's In can lead into
+// another group, and so on; this bounds that walk.
 constexpr int kMaxFlowHops = 32;
 
 const char* const kFinishedEvent = "FINISHED";
@@ -59,11 +59,9 @@ const std::string kEmptyName;
 // Largest per-run state any action in this graph asks for, inner graphs
 // included (a state's action flow, a group's contents, to any depth).
 //
-// Measured once so every track can hold ONE slot that fits whatever it ends
-// up running. The alternative the interpreter used to carry - a slice per
-// action of the state being entered, plus an offset table - sized itself to
-// the SUM of a flow's actions when only one of them is ever live, and
-// reallocated both vectors on every single state change.
+// Measured once, so every track can hold one slot that fits whatever it ends
+// up running, and a state change never allocates. Only one action per track
+// is live at a time, so one slot is enough.
 size_t MaxActionState(const DekiNodeGraph::NodeGraphData::Graph& graph)
 {
     size_t maxSize = 0;
@@ -127,10 +125,10 @@ void FsmComponent::Update()
     FsmGraph* g = graph.Get();
     if (!g || !g->data)
     {
-        return;  // no graph assigned -> nothing to run (not an error)
+        return;  // no graph assigned: nothing to run, and not an error
     }
 
-    // Asset reloaded or reassigned: drop the latched failure + machine state.
+    // Asset reloaded or reassigned: drop the failure and the machine state.
     if (g != m_LastGraph)
     {
         m_LastGraph = g;
@@ -197,7 +195,7 @@ void FsmComponent::FailFsm(const char* message)
 {
     if (m_Failed)
     {
-        return;  // one error per latch
+        return;  // already failed: log only the first error
     }
     DEKI_LOG_ERROR("FsmComponent (%s): %s — machine stopped", GetOwner() ? GetOwner()->GetName().c_str() : "?",
                    message ? message : "unknown error");
@@ -212,7 +210,7 @@ Deki::Object* FsmComponent::ResolveTargetObject(const std::string& name)
         return owner;
     }
 
-    // Anywhere in the scene tree. This walked only the root list, which in a
+    // Anywhere in the scene tree, not just the root list, which in a
     // single-root scene holds nothing but Root.
     if (owner && owner->GetOwnerScene())
     {
@@ -255,17 +253,17 @@ std::shared_ptr<bool> FsmComponent::EnsureClickWatch(const void* key, Deki2D::Bu
 
 void FsmComponent::ResetMachine()
 {
-    // Hard drop, deliberately WITHOUT running onExit: this path fires when the
+    // Drops everything without running onExit, on purpose: this runs when the
     // graph asset was reloaded or reassigned, so track state may point into
-    // freed DekiNodeGraph::NodeGraphData — touching it would be use-after-free.
+    // freed DekiNodeGraph::NodeGraphData.
     m_Tracks.clear();
     m_Initialized = false;
     m_Failed = false;
     m_EventQueue.clear();
     m_EventHead = 0;
     m_MaxActionState = 0;    // re-measured from the new graph on the next init
-    m_ClickWatches.clear();  // callbacks on buttons keep their (now orphan) flags alive
-    m_Variables.clear();     // re-declared from the new graph on the next init
+    m_ClickWatches.clear();  // button callbacks keep their now unused flags alive
+    m_Variables.clear();     // declared again from the new graph on the next init
 }
 
 void FsmComponent::InitializeVariables(const DekiNodeGraph::NodeGraphData& g)
@@ -331,9 +329,9 @@ void FsmComponent::InitializeVariables(const DekiNodeGraph::NodeGraphData& g)
 }
 
 // This object's own starting values, over the graph's: one graph, many
-// objects, each tuned in its inspector. "name=value", parsed by the declared
-// type; a name the graph does not declare, or a value that is not of its
-// type, stops the machine (a typo would otherwise silently run the default).
+// objects, each tuned in its inspector. Each is "name=value", parsed by the
+// declared type. A name the graph does not declare, or a value of the wrong
+// type, stops the machine, so a typo does not silently run the default.
 void FsmComponent::ApplyVariableOverrides()
 {
     for (const std::string& entry : variableOverrides)
@@ -410,8 +408,8 @@ bool FsmComponent::BindVariable(const Deki::PropertyRef& ref, Deki::PropertyBind
             FailFsm("a variable has a type that cannot be read or written");
             return false;
         }
-        // Bools and ints are stored in the float slot, so the binding describes
-        // the STORAGE type (Float) rather than the declared one; comparisons and
+        // Bools and ints are stored in the float slot, so the binding gives the
+        // storage type (Float) rather than the declared one; comparisons and
         // arithmetic behave the same either way.
         out.info = (var.type == Deki::PropertyType::String) ? info : DekiVariableFieldRef(Deki::PropertyType::Float);
         out.field =
@@ -529,12 +527,12 @@ FsmComponent::ResolveFlowTarget(const DekiNodeGraph::NodeGraphData::Graph*& grap
 
 void FsmComponent::InitializeMachine(const DekiNodeGraph::NodeGraphData& g)
 {
-    // The lifecycle entries (Awake/Start/Update) are permanent fixtures of
-    // every graph; each WIRED output begins its own parallel track, entered
-    // in lifecycle order (Awake flows first, then Start, then Update). An
-    // unwired output is an unused hook — same as a lifecycle method you
-    // didn't override — never an error. A machine where NOTHING is wired,
-    // however, has nothing to run at all: that one is loud.
+    // Every graph has the lifecycle entries Awake, Start and Update. Each
+    // wired output starts its own parallel track, entered in lifecycle order
+    // (Awake, then Start, then Update). An unwired output is an unused hook,
+    // like a lifecycle method you did not override, and not an error. A
+    // machine with nothing wired at all has nothing to run, and that is an
+    // error.
     m_Initialized = true;
 
     // Variables first: an Awake-track action may bind one on its very first
@@ -564,7 +562,7 @@ void FsmComponent::InitializeMachine(const DekiNodeGraph::NodeGraphData& g)
                 continue;  // unused hook
             }
             m_Tracks.emplace_back();
-            // Allocated once, here: no state change after this ever resizes it.
+            // Allocated once, here; no state change resizes it.
             m_Tracks.back().stateBuf.assign(m_MaxActionState, 0);
             EnterState(m_Tracks.back(), &g.Root(), first);
             if (m_Failed)
@@ -589,13 +587,12 @@ void FsmComponent::EnterState(Track& track, const DekiNodeGraph::NodeGraphData::
     const DekiNodeGraph::NodeGraphData::NodeInstance* state = ResolveFlowTarget(stateGraph, target, track);
     if (!state)
     {
-        return;  // machine already latched
+        return;  // machine already failed
     }
 
-    // Actions used to be an inspector stack on the state (serialized as
-    // "children"); they are an inner graph now. An asset from before that
-    // change would otherwise run as a state that silently does nothing, so say
-    // so instead of quietly dropping its actions.
+    // Older assets keep a state's actions as an inspector stack ("children")
+    // rather than an inner graph. Such a state would silently do nothing, so
+    // report it instead.
     if (!state->children.empty() && !state->inner)
     {
         const auto* d = static_cast<const FsmStateNode*>(state->instance);
@@ -619,8 +616,8 @@ void FsmComponent::EnterState(Track& track, const DekiNodeGraph::NodeGraphData::
     // incoming action uses.
 
     // Start at whatever the Entry node points at. No Entry, or nothing wired to
-    // it, is an empty flow: the state does nothing and finishes immediately,
-    // which is what a pure "wait for an event here" state looks like.
+    // it, is an empty flow: the state does nothing and finishes at once, which
+    // is what a "wait for an event here" state looks like.
     const DekiNodeGraph::NodeGraphData::NodeInstance* first = nullptr;
     if (track.actions)
     {
@@ -640,7 +637,7 @@ void FsmComponent::BeginAction(Track& track, const DekiNodeGraph::NodeGraphData:
     track.currentOps = nullptr;
     if (!node)
     {
-        return;  // flow ran off its end -> FINISHED on the next pass
+        return;  // flow ran off its end: FINISHED on the next pass
     }
 
     const FsmActionOps* ops = FsmActionRegistry::Instance().Find(node->typeId);
@@ -651,10 +648,9 @@ void FsmComponent::BeginAction(Track& track, const DekiNodeGraph::NodeGraphData:
         return;
     }
     // The slot is measured from the same registry this just read, so an action
-    // that does not fit means the two disagree - a graph reloaded against a
-    // rebuilt action library, say. Loud, not clamped: writing stateSize bytes
-    // into a shorter slot is the kind of corruption that surfaces somewhere
-    // else entirely.
+    // that does not fit means the two disagree (a graph reloaded against a
+    // rebuilt action library, say). Fail rather than clamp: writing stateSize
+    // bytes into a shorter slot corrupts memory somewhere else entirely.
     if (ops->stateSize > track.stateBuf.size())
     {
         FailFsm("an action needs more run state than this machine measured "
@@ -666,9 +662,9 @@ void FsmComponent::BeginAction(Track& track, const DekiNodeGraph::NodeGraphData:
     track.currentOps = ops;
 
     // Zero on every entry, so looping back onto an action restarts it instead
-    // of resuming a half-finished run - and so the action that just left this
-    // slot cannot be read as this one's state. Several actions keep no state at
-    // all, and a graph made only of those has an empty slot.
+    // of resuming a half-finished run, and the previous action's data is never
+    // read as this one's state. Some actions keep no state at all, and a graph
+    // made only of those has an empty slot.
     uint8_t* const state = track.stateBuf.empty() ? nullptr : track.stateBuf.data();
     if (state && ops->stateSize > 0)
     {
@@ -702,13 +698,12 @@ void FsmComponent::ExitState(Track& track)
     track.actions = nullptr;
     track.current = nullptr;
     track.currentOps = nullptr;
-    // stateBuf is NOT released: it is the track's for the machine's life, and
-    // freeing it here would put an allocation on every transition - the churn
-    // this slot exists to remove. Its contents are stale, and BeginAction
-    // zeroes what the next action reads.
+    // stateBuf is kept: it belongs to the track for the machine's life, and
+    // freeing it here would add an allocation to every transition. Its
+    // contents are stale, and BeginAction zeroes what the next action reads.
     track.finishedFired = false;
-    // `groups` is deliberately NOT cleared: it is the track's position in the
-    // grouping, maintained by ResolveFlowTarget as the flow enters and leaves.
+    // `groups` is kept on purpose: it is the track's position in the grouping,
+    // maintained by ResolveFlowTarget as the flow enters and leaves groups.
 }
 
 // No graph parameter: every track already knows which graph level its active
@@ -719,14 +714,14 @@ void FsmComponent::ProcessEvents()
     {
         // By value, and by index: entering a state runs its first action, which
         // may raise events of its own, so the vector can grow (and move) inside
-        // this loop. The copy is what makes that safe, and the index is what
-        // keeps the drain from shifting every remaining entry down one.
-        // Moved out, not copied: the slot is never read again once the head
-        // has passed it, and a copy allocated for any name over 15 chars.
+        // this loop. Taking the event out makes that safe, and the index keeps
+        // each read from shifting the remaining entries down. Moved, not
+        // copied: the slot is never read again, and a copy would allocate for
+        // any name over 15 characters.
         const QueuedEvent ev = std::move(m_EventQueue[m_EventHead++]);
 
-        // Broadcast events are offered to every track (each may transition on
-        // it independently); track-scoped events (FINISHED) only to their own.
+        // Broadcast events go to every track (each may transition on it by
+        // itself); track-scoped events (FINISHED) only to their own track.
         for (size_t t = 0; t < m_Tracks.size() && !m_Failed; ++t)
         {
             if (ev.track >= 0 && static_cast<int>(t) != ev.track)
@@ -752,8 +747,8 @@ void FsmComponent::ProcessEvents()
             }
             if (pin < 0)
             {
-                // Not listened for here. For a track's own FINISHED that just
-                // means a terminal state (the track parks — by design).
+                // Not listened for here. For a track's own FINISHED that means
+                // a terminal state, where the track stays.
                 if (ev.track >= 0)
                 {
                     DEKI_LOG_DEBUG("FsmComponent: event '%s' ignored by state '%s'", ev.name.c_str(),
@@ -781,13 +776,13 @@ void FsmComponent::ProcessEvents()
             }
             EnterState(track, track.graph, next);
 
-            // The state that raised this track's FINISHED is gone. Any
-            // still-queued event scoped to this track belongs to it, not to
-            // the state just entered, so it must not be delivered there.
+            // The state that raised this track's FINISHED is gone. Any queued
+            // event scoped to this track belongs to that state, not to the one
+            // just entered, so it must not be delivered.
             //
-            // From the UNDRAINED part only: the entries before m_EventHead are
-            // already consumed, and erasing one would slide the pending ones
-            // down under the index this loop is reading with.
+            // Only from the unread part: entries before m_EventHead are already
+            // handled, and erasing one would slide the pending ones under the
+            // index this loop reads with.
             m_EventQueue.erase(std::remove_if(m_EventQueue.begin() + static_cast<std::ptrdiff_t>(m_EventHead),
                                               m_EventQueue.end(),
                                               [t](const QueuedEvent& q) { return q.track == static_cast<int>(t); }),
@@ -795,8 +790,8 @@ void FsmComponent::ProcessEvents()
         }
     }
 
-    // Fully drained: rewind to the front, keeping the storage for next frame.
-    // (A latched failure leaves the rest where it is; ResetMachine clears both.)
+    // All read: rewind to the front, keeping the storage for the next frame.
+    // A failure leaves the rest where it is; ResetMachine clears both.
     if (m_EventHead >= m_EventQueue.size())
     {
         m_EventQueue.clear();
@@ -809,9 +804,9 @@ void FsmComponent::RunActions()
     const float dt = Deki::Time::GetDeltaTimeF() * 0.001f;
     FsmContext ctx{ GetOwner(), this, dt };
 
-    // Every track runs the ONE action its active state is currently on, and
-    // follows the wires for as long as actions keep finishing this frame.
-    // Each track has its own FINISHED.
+    // Every track runs the one action its active state is on, and follows the
+    // wires for as long as actions keep finishing this frame. Each track has
+    // its own FINISHED.
     for (size_t t = 0; t < m_Tracks.size(); ++t)
     {
         Track& track = m_Tracks[t];
@@ -827,7 +822,7 @@ void FsmComponent::RunActions()
             const DekiNodeGraph::NodeGraphData::NodeInstance* node = track.current;
             void* const state = track.stateBuf.empty() ? nullptr : static_cast<void*>(track.stateBuf.data());
 
-            // No onUpdate = an enter-only action: done on pin 0 the moment it ran.
+            // No onUpdate: the action finishes on pin 0 as soon as it is entered.
             const int pin = ops->onUpdate ? ops->onUpdate(node->instance, state, ctx) : 0;
             if (m_Failed)
             {

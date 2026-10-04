@@ -1,12 +1,8 @@
-/**
- * @file FsmPackage.cpp
- * @brief Package entry point for deki-fsm DLL.
- *
- * Exports the standard Deki plugin interface so the editor can load
- * deki-fsm.dll and register its components (FsmComponent). For linked DLLs
- * (not dynamically loaded), DekiFsmEnsureRegistered() must be called from the
- * main executable to trigger the static initializers.
- */
+// Package entry point for the deki-fsm DLL. Exports the standard Deki plugin
+// interface, so the editor can load the DLL and register its components
+// (FsmComponent). When the DLL is linked rather than loaded at runtime, the
+// main executable must call DekiFsmEnsureRegistered() to run the static
+// initializers.
 
 #include <deki/interop/Plugin.h>
 #include "FsmPackage.h"
@@ -27,25 +23,22 @@ namespace DekiFsm
 
 #ifdef DEKI_EDITOR
 
-// Auto-generated registration helpers
-
-// Defined in editor/FsmGraphEditor.cpp (re-registers the Fsm graph domain).
-
 // The exports below are C symbols at global scope; the package's own
 // registration helpers and statics live in its namespace.
 using namespace DekiFsm;
 
+// Defined in editor/FsmGraphEditor.cpp; registers the Fsm graph domain again.
 extern "C" void DekiFsmRegisterEditorGraphDomain(void);
 
 static bool s_FsmRegistered = false;
 
 namespace
 {
-// Re-runnable mirror of the generated REGISTER_RUNTIME_NODE/REGISTER_NODE
-// static registrars. Those run once at DLL load; the editor's plugin-only
-// hot reload wipes the shared node registries WITHOUT unloading this
-// package, so registration must be repeatable on demand. DekiNodeGraph::NodeFactory
-// overwrites by typeId and DekiNodeGraph::NodeTypeRegistry dedupes, so this is idempotent.
+// Does what the generated REGISTER_RUNTIME_NODE/REGISTER_NODE static
+// registrars do, but can run again. Those run once at DLL load, and the
+// editor's plugin-only hot reload clears the shared node registries without
+// unloading this package. Safe to repeat: DekiNodeGraph::NodeFactory
+// overwrites by typeId and DekiNodeGraph::NodeTypeRegistry ignores duplicates.
 template <typename T>
 void RegisterFsmNodeType()
 {
@@ -60,12 +53,10 @@ void RegisterFsmNodeType()
 
 extern "C"
 {
-    /**
-     * @brief (Re-)register this package's node graph types: state/action node
-     * factories, editor metas, and the Fsm graph domain. Called at package load via
-     * ::DekiPluginRegisterComponents and again after any registry wipe that keeps
-     * this DLL loaded (plugin-only hot reload).
-     */
+    // Registers this package's node graph types: the state and action node
+    // factories, editor metas and the Fsm graph domain. Called at package load
+    // through ::DekiPluginRegisterComponents, and again whenever the registries
+    // are cleared while this DLL stays loaded (plugin-only hot reload).
     DEKI_FSM_API void DekiFsmRegisterGraphTypes(void)
     {
         RegisterFsmNodeType<FsmStartNode>();
@@ -97,10 +88,7 @@ extern "C"
         DekiFsmRegisterEditorGraphDomain();
     }
 
-    /**
-     * @brief Ensure deki-fsm package is loaded and components are registered.
-     * @return Number of components registered by this package
-     */
+    // Registers the package's components once. Returns how many there are.
     DEKI_FSM_API int DekiFsmEnsureRegistered(void)
     {
         if (s_FsmRegistered)
@@ -117,7 +105,7 @@ extern "C"
 }  // extern "C"
 
 // =============================================================================
-// Plugin metadata (for dynamic loading compatibility)
+// Plugin metadata
 // =============================================================================
 
 extern "C"
@@ -160,24 +148,24 @@ extern "C"
     DEKI_PLUGIN_API void DekiPluginRegisterComponents(void)
     {
         DekiFsmEnsureRegistered();
-        // Deliberately OUTSIDE the s_FsmRegistered latch: node registries are
-        // wiped on every hot reload (full or plugin-only) and this export is the
-        // re-registration path for the plugin-only case.
+        // Outside the s_FsmRegistered check on purpose: every hot reload (full
+        // or plugin-only) clears the node registries, and this export is how
+        // they are filled again after a plugin-only one.
         DekiFsmRegisterGraphTypes();
     }
 
     DEKI_PLUGIN_API void DekiPluginOnPlayModeStop(void)
     {
-        // Machine state lives per FsmComponent instance; instances die with the
-        // play-mode scene, so there is nothing global to reset here.
+        // Machine state lives in each FsmComponent, which goes away with the
+        // play-mode scene, so there is nothing global to reset.
     }
 
-    // deki-fsm renders no editor UI of its own, so it links no ImGui and shares no
-    // ImGui context. Its inspectors are the editor's generic reflection UI and the
-    // generic Node Graph window.
+    // deki-fsm draws no editor UI of its own, so it links no ImGui and shares
+    // no ImGui context. Its inspectors are the editor's reflection UI and the
+    // Node Graph window.
 
     // =============================================================================
-    // Package-specific feature API (for linked DLL access without name conflicts)
+    // Package-specific API, with names that do not clash when DLLs link each other
     // =============================================================================
 
     DEKI_FSM_API const char* DekiFsmGetName(void)

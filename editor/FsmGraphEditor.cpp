@@ -1,16 +1,12 @@
-/**
- * @file FsmGraphEditor.cpp
- * @brief Editor-side registration for the FsmGraph state-machine asset.
- *
- * Registers (a) the asset type so the Asset Browser's Create... menu offers
- * "State Machine" with a valid empty graph, and (b) the node-graph domain so
- * the generic Node Graph window claims this asset type and scopes its add-node
- * menu to the "Fsm" node categories (see FsmNodes.h; action types live under
- * "Fsm/Actions" and appear only INSIDE a state, on the canvas you get by
- * double-clicking it). Compilation needs no code here: the type has a runtime
- * loader, so the generic data-asset path transcodes the JSON to a MessagePack
- * cache.
- */
+// Editor registration for the FsmGraph state-machine asset.
+//
+// Registers the asset type, so the Asset Browser's Create menu offers "State
+// Machine" with a valid empty graph, and the node-graph domain, so the Node
+// Graph window opens this asset type and limits its add-node menu to the
+// "Fsm" node categories (see FsmNodes.h). Action types live under
+// "Fsm/Actions" and appear only inside a state, on the canvas you get by
+// double-clicking it. Compiling needs no code here: the type has a runtime
+// loader, so the data-asset path converts the JSON to a MessagePack cache.
 
 #ifdef DEKI_EDITOR
 
@@ -32,11 +28,10 @@ public:
     const char* GetDisplayName() const override { return "State Machine"; }
     const char* GetExtension() const override { return ".asset"; }
 
-    // Every graph carries its three permanent lifecycle entries (the editor
-    // re-seeds missing ones on open); Start comes wired into one empty state
-    // so a fresh machine runs immediately. The state ships with its action
-    // flow already containing the Entry node it starts from — double-click the
-    // state to get there.
+    // Every graph has its three permanent lifecycle entries (the editor adds
+    // back missing ones on open). Start is wired into one empty state so a new
+    // machine runs at once, and that state's action flow already holds the
+    // Entry node it starts from (double-click the state to see it).
     const char* GetDefaultContent() const override
     {
         return R"({
@@ -71,10 +66,10 @@ REGISTER_EDITOR(FsmGraphAssetEditor)
 
 REGISTER_NODE_GRAPH_DOMAIN(kFsmDomain, "FsmGraph", "State Machine", "Fsm", "FsmStart");
 
-// Re-registration hook for plugin-only hot reload: the editor wipes the domain
-// registry while this DLL stays loaded, so the static registrar above never
-// reruns. Registry Register() dedupes, so calling this repeatedly is safe.
-// Invoked from DekiFsmRegisterGraphTypes (FsmPackage.cpp).
+// Registers the domain again after a plugin-only hot reload: the editor clears
+// the domain registry while this DLL stays loaded, so the static registrar
+// above does not run again. Register() ignores duplicates, so repeated calls
+// are safe. Called from DekiFsmRegisterGraphTypes (FsmPackage.cpp).
 // The exports below are C symbols at global scope; the package's own
 // registration helpers and statics live in its namespace.
 using namespace DekiEditor;

@@ -1,9 +1,8 @@
 #pragma once
 
-// DLL export macro, in its own header so intra-package headers can use it
-// without pulling the FsmPackage.h aggregator (which includes everything and
-// would create include cycles — e.g. FsmActionRegistry.h -> FsmPackage.h ->
-// FsmComponent.h -> FsmActionRegistry.h left FsmActionOps undefined).
+// DLL export macro, in its own header so the package's headers can use it
+// without including FsmPackage.h. That header includes everything, so using
+// it here creates include cycles that leave types undefined.
 #ifdef DEKI_EDITOR
 #ifdef _WIN32
 #ifdef DEKI_FSM_EXPORTS

@@ -1,21 +1,18 @@
-/**
- * @file FsmActionLibrary.cpp
- * @brief Runtime behavior (FsmActionOps) for the milestone-1 action set.
- *
- * Data structs live in FsmActions.h; this file supplies each one's callbacks
- * and registers them keyed by node-name hash (REGISTER_FSM_ACTION). Per-run
- * state goes in the interpreter's zero-initialized blob (ops.stateSize), never
- * in the shared data struct — many FsmComponents may run the same graph asset.
- *
- * Resolution happens in onEnter, never per frame: object lookups, field
- * bindings and literal parsing all land in the blob when the action starts, so
- * onUpdate is a store, a compare or a bool read. Nothing here touches a string
- * once a state is running.
- *
- * Failure policy is the package's: anything unresolvable (object name, missing
- * component/field, unparsable value) calls ctx.Fail once and the machine
- * latches off. No fallbacks.
- */
+// Runtime behavior (FsmActionOps) for the package's own actions.
+//
+// The data structs live in FsmActions.h; this file gives each one its
+// callbacks and registers them by node-name hash. Per-run state goes in the
+// interpreter's zeroed block (ops.stateSize), never in the data struct, which
+// every FsmComponent running the same graph asset shares.
+//
+// Lookups happen in onEnter, never per frame: objects, field bindings and
+// literal parsing all land in the state block when the action starts, so
+// onUpdate is a store, a compare or a bool read. Nothing here touches a string
+// once a state is running.
+//
+// Anything that cannot be resolved (an object name, a missing component or
+// field, a value that does not parse) calls ctx.Fail once, and the machine
+// stops.
 
 #include "FsmActions.h"
 #include "FsmActionRegistry.h"
@@ -51,24 +48,24 @@ constexpr int kTruePin = 0;
 constexpr int kFalsePin = 1;
 
 // ---------------------------------------------------------------------------
-// Binding plumbing shared by Set Property / Compare Property.
+// Binding shared by Set Property and Compare Property.
 //
-// Both actions resolve their PropertyRef ONCE, in onEnter, into the per-run
-// state blob: object lookup, component lookup, field lookup and literal parse
-// all happen there, and the per-frame path is a write or a compare through a
-// cached pointer. The blob is zero-initialized, so BoundState must stay POD.
+// Both actions resolve their PropertyRef once, in onEnter, into the per-run
+// state block: object, component and field lookup and the literal parse all
+// happen there, and each frame is a write or a compare through a cached
+// pointer. The block is zeroed, not constructed, so BoundState must stay POD.
 // ---------------------------------------------------------------------------
 
 struct BoundState
 {
     Deki::PropertyBinding binding;
-    uint8_t bound;  // 1 once the reference resolved (0 = the FSM latched)
+    uint8_t bound;  // 1 once the reference resolved (0: the FSM has failed)
     uint8_t flag;   // Set Property: applied; Compare Property: fired
 };
 
-// Resolve a reference to a live binding. A "Variable" reference is the
-// machine's own storage (the engine can't see it), anything else is a component
-// field or the object's transform.
+// Resolves a reference to a live binding. A "Variable" reference is the
+// machine's own storage, which the engine cannot see; anything else is a
+// component field or the object's transform.
 bool BindRef(FsmContext& ctx, const Deki::PropertyRef& ref, const char* actionName, Deki::PropertyBinding& out)
 {
     if (ref.component == Deki::kVariableRefComponent)
@@ -79,7 +76,7 @@ bool BindRef(FsmContext& ctx, const Deki::PropertyRef& ref, const char* actionNa
     Deki::Object* target = ctx.ResolveTarget(ref.object);
     if (!target)
     {
-        return false;  // FSM already latched by ResolveTarget
+        return false;  // ResolveTarget has failed the FSM
     }
 
     const char* why = nullptr;
@@ -95,8 +92,8 @@ bool BindRef(FsmContext& ctx, const Deki::PropertyRef& ref, const char* actionNa
     return true;
 }
 
-// Resolve `ref` and pre-parse `literal` into s->binding. Fails the FSM (once,
-// with the offending names) and leaves s->bound at 0 on any miss.
+// Resolves `ref` and parses `literal` into s->binding. On any miss, fails the
+// FSM once, naming what was missing, and leaves s->bound at 0.
 void BindOrFail(FsmContext& ctx, const Deki::PropertyRef& ref, const std::string& literal, const char* actionName,
                 BoundState* s)
 {
@@ -118,7 +115,8 @@ void BindOrFail(FsmContext& ctx, const Deki::PropertyRef& ref, const std::string
 
 // A number an action takes from a graph variable instead of its literal (its
 // "...Variable" field, see FsmActions.h). Read once, as the action starts.
-// False after the FSM latched: no such variable, or not a number.
+// Returns false, after failing the FSM, when there is no such variable or it
+// is not a number.
 bool ReadNumberVariable(FsmContext& ctx, const std::string& name, const char* actionName, double& out)
 {
     Deki::PropertyRef ref;
@@ -128,7 +126,7 @@ bool ReadNumberVariable(FsmContext& ctx, const std::string& name, const char* ac
     Deki::PropertyBinding b;
     if (!ctx.fsm || !ctx.fsm->BindVariable(ref, b))
     {
-        return false;  // latched, naming the variable
+        return false;  // the FSM has failed, naming the variable
     }
     if (static_cast<Deki::PropertyType>(b.info->type) == Deki::PropertyType::String)
     {
@@ -256,11 +254,11 @@ int SetPropertyUpdate(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<BoundState*>(state);
     if (!s->bound)
     {
-        return kDone;  // FSM latched in onEnter
+        return kDone;  // the FSM failed in onEnter
     }
 
-    // Everything expensive already happened at bind time: this is a store.
-    // A value read from a variable is a number, not text to parse.
+    // Everything costly happened at bind time, so this is a store. A value
+    // read from a variable is a number, not text to parse.
     if (d->valueVariable.empty())
     {
         WriteBoundProperty(s->binding, d->value);
@@ -270,7 +268,7 @@ int SetPropertyUpdate(const void* data, void* state, FsmContext& ctx)
         WriteBoundNumbers(s->binding, s->binding.number, s->binding.number2);
     }
     s->flag = 1;
-    return d->everyFrame ? kFsmActionRunning : kDone;  // everyFrame parks the flow
+    return d->everyFrame ? kFsmActionRunning : kDone;  // everyFrame keeps the flow here
 }
 
 const FsmActionOps kSetPropertyOps = { sizeof(BoundState), &SetPropertyEnter, &SetPropertyUpdate, nullptr };
@@ -289,8 +287,8 @@ void CompareEnter(const void* data, void* state, FsmContext& ctx)
         return;
     }
 
-    // Ordering a string has no meaning here; catch it at bind time rather than
-    // silently comparing something surprising every frame.
+    // Less/greater on a string means nothing here; fail at bind time rather
+    // than compare something surprising every frame.
     if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::String &&
         d->compare != FsmCompareOp::Equals && d->compare != FsmCompareOp::NotEquals)
     {
@@ -305,7 +303,7 @@ int CompareUpdate(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<BoundState*>(state);
     if (!s->bound)
     {
-        return kDone;  // FSM latched in onEnter
+        return kDone;  // the FSM failed in onEnter
     }
 
     const int cmp = CompareBoundProperty(s->binding, d->value);
@@ -318,15 +316,15 @@ int CompareUpdate(const void* data, void* state, FsmContext& ctx)
         case FsmCompareOp::Greater: holds = cmp > 0; break;
     }
 
-    // Gate: park here (re-testing every frame) until the comparison holds, then
-    // leave down "true". There is no false outcome in this mode by definition.
+    // Gate: wait here, testing every frame, until the comparison holds, then
+    // leave down "true". This mode has no false outcome.
     if (d->waitUntilTrue)
     {
         return holds ? kTruePin : kFsmActionRunning;
     }
 
-    // Branch: decide now and leave down the matching pin. No event names, no
-    // edge tracking — the outcome IS the wire that gets followed.
+    // Branch: decide now and leave down the matching pin. The outcome is the
+    // wire that gets followed; no event names are needed.
     return holds ? kTruePin : kFalsePin;
 }
 
@@ -336,7 +334,7 @@ const FsmActionOps kCompareOps = { sizeof(BoundState), &CompareEnter, &CompareUp
 // Tween Property
 // ---------------------------------------------------------------------------
 
-// Bound once in onEnter, along with the start value(s) read off the live field.
+// Bound once in onEnter, with the start values read from the live field.
 // A Vector2 target drives both axes, so one action can move diagonally.
 struct TweenState
 {
@@ -355,7 +353,7 @@ void TweenEnter(const void* data, void* state, FsmContext& ctx)
 
     if (!BindRef(ctx, d->target, "Tween Property", s->binding))
     {
-        return;  // FSM latched
+        return;  // the FSM has failed
     }
 
     const auto type = static_cast<Deki::PropertyType>(s->binding.info->type);
@@ -408,7 +406,7 @@ int TweenUpdate(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<TweenState*>(state);
     if (!s->bound)
     {
-        return kDone;  // FSM latched in onEnter
+        return kDone;  // the FSM failed in onEnter
     }
 
     const double end = d->relative ? s->start + s->binding.number : s->binding.number;
@@ -455,7 +453,7 @@ int ModifyUpdate(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<BoundState*>(state);
     if (!s->bound)
     {
-        return kDone;  // FSM latched in onEnter
+        return kDone;  // the FSM failed in onEnter
     }
 
     const double cur = ReadBoundProperty(s->binding);
@@ -519,7 +517,7 @@ void RandomEnter(const void* data, void* state, FsmContext& ctx)
     // No literal to parse: the value comes from the range, not from text.
     if (!BindRef(ctx, d->target, "Random Property", s->binding))
     {
-        return;  // FSM latched
+        return;  // the FSM has failed
     }
 
     if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::String)
@@ -622,7 +620,7 @@ int DestroyUpdate(const void* data, void* /*state*/, FsmContext& ctx)
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
     {
-        return kDone;  // FSM latched
+        return kDone;  // the FSM has failed
     }
 
     Deki::Scene* owner = target->GetOwnerScene();
@@ -648,7 +646,7 @@ int SetParentUpdate(const void* data, void* /*state*/, FsmContext& ctx)
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
     {
-        return kDone;  // FSM latched
+        return kDone;  // the FSM has failed
     }
 
     // An empty new parent means the scene root, so it is resolved separately
@@ -659,7 +657,7 @@ int SetParentUpdate(const void* data, void* /*state*/, FsmContext& ctx)
         parent = ctx.ResolveTarget(d->newParent);
         if (!parent)
         {
-            return kDone;  // FSM latched
+            return kDone;  // the FSM has failed
         }
     }
     target->SetParent(parent);
@@ -685,7 +683,7 @@ void PlayAnimEnter(const void* data, void* state, FsmContext& ctx)
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
     {
-        return;  // FSM latched
+        return;  // the FSM has failed
     }
 
     Deki2D::AnimationComponent* anim = target->GetComponent<Deki2D::AnimationComponent>();
@@ -711,7 +709,7 @@ int PlayAnimUpdate(const void* data, void* state, FsmContext& /*ctx*/)
     auto* s = static_cast<PlayAnimState*>(state);
     if (!s->anim)
     {
-        return kDone;  // FSM latched in onEnter
+        return kDone;  // the FSM failed in onEnter
     }
     if (!d->waitForFinish)
     {
@@ -739,7 +737,7 @@ int SendEventToUpdate(const void* data, void* /*state*/, FsmContext& ctx)
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
     {
-        return kDone;  // FSM latched
+        return kDone;  // the FSM has failed
     }
 
     FsmComponent* fsm = target->GetComponent<FsmComponent>();
@@ -773,9 +771,9 @@ const FsmActionOps kLogOps = { 0, nullptr, &LogUpdate, nullptr };
 // Watch Button
 // ---------------------------------------------------------------------------
 
-// The clicked flag is owned by the FsmComponent's watch map for the component's
-// whole life (never erased), so caching the raw pointer here is safe and turns
-// the per-frame path into a single bool read.
+// The FsmComponent's watch list owns the clicked flag for the component's
+// whole life (it is never erased), so keeping the raw pointer here is safe and
+// makes each frame a single bool read.
 struct WatchButtonState
 {
     bool* clicked;
@@ -789,7 +787,7 @@ void WatchButtonEnter(const void* data, void* state, FsmContext& ctx)
     Deki::Object* target = ctx.ResolveTarget(d->buttonObject);
     if (!target)
     {
-        return;  // FSM latched
+        return;  // the FSM has failed
     }
 
     Deki2D::ButtonComponent* button = target->GetComponent<Deki2D::ButtonComponent>();
@@ -802,8 +800,8 @@ void WatchButtonEnter(const void* data, void* state, FsmContext& ctx)
         return;
     }
 
-    // Registered once per FSM + action instance, so clicks are never
-    // double-subscribed across state re-entries.
+    // Registered once per FSM and action instance, so entering the state again
+    // does not subscribe to clicks twice.
     s->clicked = ctx.fsm->EnsureClickWatch(data, button).get();
 }
 
@@ -812,7 +810,7 @@ int WatchButtonUpdate(const void* /*data*/, void* state, FsmContext& /*ctx*/)
     auto* s = static_cast<WatchButtonState*>(state);
     if (!s->clicked)
     {
-        return kDone;  // FSM latched in onEnter
+        return kDone;  // the FSM failed in onEnter
     }
 
     if (*s->clicked)
@@ -828,12 +826,12 @@ const FsmActionOps kWatchButtonOps = { sizeof(WatchButtonState), &WatchButtonEnt
 }  // namespace
 
 // ---------------------------------------------------------------------------
-// Registration (typeId = hash of the node name, as stored by the graph loader)
+// Registration (typeId = hash of the node name, as the graph loader stores it)
 //
-// Called from DekiFsmInitSystem rather than done by REGISTER_FSM_ACTION
+// Must be called from DekiFsmInitSystem, not done by REGISTER_FSM_ACTION
 // statics: a firmware links the game from an archive, and the linker drops an
-// object nothing references, registrars and all, which left every action
-// without runtime ops on the device.
+// object nothing references, registrars and all, leaving every action without
+// runtime ops on the device.
 // ---------------------------------------------------------------------------
 
 namespace

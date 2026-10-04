@@ -11,48 +11,49 @@
 namespace DekiFsm
 {
 
-// The action library: the data side. Each action is a plain reflected struct in
-// category "Fsm/Actions" — FsmStateNode's SUBGRAPH category, so these are
-// authored on the canvas INSIDE a state (double-click a state to descend into
-// its action flow), never at the graph root. Runtime behavior is registered
+// The action library, data side. Each action is a plain reflected struct in
+// category "Fsm/Actions", which is FsmStateNode's subgraph category, so these
+// are placed on the canvas inside a state (double-click a state to open its
+// action flow), never at the graph root. Runtime behavior is registered
 // separately, by RegisterActionLibrary() in FsmActionLibrary.cpp; project DLLs
 // add game-specific actions with REGISTER_FSM_ACTION.
 //
-// PINS. Every action has one input ("in") and one or more outputs. A state's
+// Pins. Every action has one input ("in") and one or more outputs. A state's
 // flow starts at its Entry node and follows the wires: when an action finishes
-// it hands control to whatever its finishing pin is wired to. Most actions have
-// a single "done" pin; a BRANCHING action has one pin per outcome (Compare
-// Property: "true" and "false"), which is how a graph makes a decision without
-// inventing event names for it. Reaching an unwired pin ends the flow and
-// raises FINISHED for that state.
+// it hands control to whatever its finishing pin is wired to. Most actions
+// have a single "done" pin; a branching action has one pin per outcome
+// (Compare Property: "true" and "false"), so a graph can decide without
+// inventing event names. Reaching an unwired pin ends the flow and raises
+// FINISHED for that state.
 //
-// The flow is a graph, not a list: wiring an action back to an earlier one is a
-// legal loop, and re-entering an action resets its runtime state exactly as if
-// it had been entered for the first time.
+// The flow is a graph, not a list: wiring an action back to an earlier one is
+// a valid loop, and entering an action again resets its runtime state as on
+// its first entry.
 //
 // An action that never finishes (Watch Button, anything with everyFrame on)
-// parks the flow on itself, so nothing downstream of it runs. That is how a
-// per-frame watcher is expressed: park on it and let it raise events.
+// keeps the flow on itself, so nothing after it runs. That is how to write a
+// per-frame watcher: stop on it and let it raise events.
 //
-// EVENTS. Actions do not carry event names. Send Event is the one action that
-// raises one, so "what raises this event" is always answerable by looking for
-// Send Event nodes. Branch with pins; raise an event when you want to leave the
-// state (only an event moves a track from one state to another).
+// Events. Actions do not carry event names. Send Event is the one action that
+// raises one, so looking for Send Event nodes always shows what raises an
+// event. Branch with pins; raise an event to leave the state (only an event
+// moves a track from one state to another).
 //
-// Object targeting convention: `targetObject` empty = the FSM's owner object,
-// else the name of an object in the same scene. A name that resolves to
-// nothing is a graph error at runtime (no fallback). DEKI_OBJECT_NAME gives
-// those fields the editor's object picker (browse the open scene's hierarchy
-// instead of typing the name); the stored value stays the plain name, so one
-// graph still drives every scene that uses the same object names.
+// Object targets: an empty `targetObject` means the FSM's owner object,
+// anything else names an object in the same scene. A name that matches
+// nothing is a graph error at runtime that stops the machine.
+// DEKI_OBJECT_NAME gives those fields the editor's object picker (browse the
+// open scene's hierarchy instead of typing the name); the stored value stays
+// the plain name, so one graph still drives every scene that uses the same
+// object names.
 
-// VARIABLES AS PARAMETERS. A number an action takes - a Wait's seconds, a
-// tween's duration and amount, a Set's value, a Modify's operand - can come from
-// a graph variable instead: its "...Variable" field names a Number variable, and
-// when it is set that variable's value, read as the action STARTS, replaces the
-// typed literal. So one graph serves many objects, each giving it different
-// numbers through FsmComponent::variableOverrides. An unknown name stops the
-// machine. Empty = the literal, as before.
+// Variables as parameters. A number an action takes (a Wait's seconds, a
+// tween's duration and amount, a Set's value, a Modify's operand) can come
+// from a graph variable instead: its "...Variable" field names a Number
+// variable, and when set, that variable's value, read as the action starts,
+// replaces the typed literal. So one graph serves many objects, each giving it
+// different numbers through FsmComponent::variableOverrides. An unknown name
+// stops the machine. Empty means the literal is used.
 
 // Comparison operator for Compare Property.
 enum class FsmCompareOp : uint8_t
@@ -74,8 +75,8 @@ enum class FsmMathOp : uint8_t
     Max,
 };
 
-// Do nothing for a fixed number of seconds, then continue. The classic timed
-// step: Wait 2s wired onward is "two seconds later, ...".
+/// Does nothing for a set number of seconds, then continues. Wait 2s wired
+/// onward means "two seconds later, ...".
 struct FsmWaitAction
 {
     DEKI_NODE(FsmWaitAction, "FsmWait", "Fsm/Actions")
@@ -88,9 +89,9 @@ public:
     DEKI_EXPORT std::string secondsVariable;
 };
 
-// Raise an event on this FSM (optionally after a delay), then continue. The
-// event is matched against the ACTIVE state's transitions when processed, so
-// this is how a state's action flow ends up leaving the state.
+/// Raises an event on this FSM (optionally after a delay), then continues. The
+/// event is matched against the active state's transitions when handled, so
+/// this is how a state's action flow leaves the state.
 struct FsmSendEventAction
 {
     DEKI_NODE(FsmSendEventAction, "FsmSendEvent", "Fsm/Actions")
@@ -103,11 +104,11 @@ public:
     DEKI_EXPORT float delaySec = 0.0f;
 };
 
-// Write any DEKI_EXPORT field of any component. `target` is picked in the
-// inspector (object -> component -> field) and resolved ONCE when the action
-// starts, so the per-frame cost is a memcpy; `value` is authored typed to
-// whatever the reference points at. everyFrame re-applies each frame and never
-// finishes, which parks the flow — nothing wired after it will run.
+/// Writes any DEKI_EXPORT field of any component. `target` is picked in the
+/// inspector (object -> component -> field) and resolved once when the action
+/// starts, so each frame costs only a memcpy; `value` is typed to match the
+/// field. everyFrame writes again each frame and never finishes, which keeps
+/// the flow here: nothing wired after it runs.
 struct FsmSetPropertyAction
 {
     DEKI_NODE(FsmSetPropertyAction, "FsmSetProperty", "Fsm/Actions")
@@ -122,14 +123,15 @@ public:
     DEKI_EXPORT bool everyFrame = false;
 };
 
-// The "if" of the graph: read the picked field, compare it, and continue down
-// the TRUE or the FALSE pin. Resolved once when the action starts, like Set
-// Property.
-//
-// waitUntilTrue turns it from a branch into a gate: the action does not finish
-// while the comparison is false (re-tested every frame), so the flow parks here
-// until the world says yes and then continues down "true". The "false" pin is
-// unreachable in that mode — wire it only in the default one-shot mode.
+/// The graph's "if": reads the picked field, compares it, and continues down
+/// the true or the false pin. Resolved once when the action starts, like Set
+/// Property.
+///
+/// waitUntilTrue makes it a gate instead of a branch: the action does not
+/// finish while the comparison is false (tested again every frame), so the
+/// flow waits here until it is true and then continues down "true". The
+/// "false" pin is never taken in that mode; wire it only in the default
+/// one-shot mode.
 struct FsmComparePropertyAction
 {
     DEKI_NODE(FsmComparePropertyAction, "FsmCompareProperty", "Fsm/Actions")
@@ -144,13 +146,13 @@ public:
     DEKI_EXPORT bool waitUntilTrue = false;
 };
 
-// Ease ANY numeric field from its current value to `to` over `duration`
-// seconds, then continue. This is the generic form of "move to": point `target`
-// at Transform / Position for a move, Transform / Rotation to spin, Transform /
-// Scale to grow, or any float or Vector2 field of any component to animate that
-// instead. A Vector2 target (position, scale) moves both axes in this ONE
-// action. relative = `to` is an offset from wherever the field was when the
-// action started. Easing curves come from deki-tween.
+/// Eases any numeric field from its current value to `to` over `duration`
+/// seconds, then continues. The general form of "move to": point `target` at
+/// Transform / Position to move, Transform / Rotation to spin, Transform /
+/// Scale to grow, or any float or Vector2 field of any component to animate
+/// that. A Vector2 target (position, scale) moves both axes in this one action.
+/// With `relative`, `to` is an offset from where the field was when the action
+/// started. Easing curves come from deki-tween.
 struct FsmTweenPropertyAction
 {
     DEKI_NODE(FsmTweenPropertyAction, "FsmTweenProperty", "Fsm/Actions")
@@ -168,10 +170,10 @@ public:
     DEKI_EXPORT bool relative = false;
 };
 
-// Arithmetic on any numeric field or variable: target = target op operand.
-// The counter/score/health workhorse — "Score += 10" is this action pointed at a
-// graph variable, "Health -= 1" the same pointed at a component field. Finishes
-// immediately unless everyFrame is on (which parks the flow).
+/// Arithmetic on any numeric field or variable: target = target op operand.
+/// For counters, scores and health: "Score += 10" is this action on a graph
+/// variable, "Health -= 1" the same on a component field. Finishes at once
+/// unless everyFrame is on, which keeps the flow here.
 struct FsmModifyPropertyAction
 {
     DEKI_NODE(FsmModifyPropertyAction, "FsmModifyProperty", "Fsm/Actions")
@@ -188,9 +190,9 @@ public:
     DEKI_EXPORT bool everyFrame = false;
 };
 
-// Write a random number into any numeric field or variable. `wholeNumbers`
-// rounds to an integer, so "pick a room 1..5" and "jitter a position by 0.1m"
-// are the same action.
+/// Writes a random number into any numeric field or variable. `wholeNumbers`
+/// rounds to an integer, so "pick a room 1..5" and "jitter a position by 0.1m"
+/// are the same action.
 struct FsmRandomPropertyAction
 {
     DEKI_NODE(FsmRandomPropertyAction, "FsmRandomProperty", "Fsm/Actions")
@@ -205,13 +207,13 @@ public:
     DEKI_EXPORT bool wholeNumbers = false;
 };
 
-// Instantiate a scene into the running scene, at (x, y) meters — relative to
-// the spawner's position when `relative` is on. `spawnedName` renames the new
-// root so later actions (and other states) can find it by name; empty keeps the
-// scene's own name.
-//
-// NOTE: the graph window has no asset picker yet, so `scene` is authored as a
-// GUID string there (the value round-trips and loads correctly either way).
+/// Instantiates a scene into the running scene at (x, y) meters, relative to
+/// the spawner's position when `relative` is on. `spawnedName` renames the new
+/// root so later actions and other states can find it by name; empty keeps the
+/// scene's own name.
+///
+/// The graph window has no asset picker, so `scene` is entered there as a GUID
+/// string; it saves and loads correctly either way.
 struct FsmSpawnSceneAction
 {
     DEKI_NODE(FsmSpawnSceneAction, "FsmSpawnScene", "Fsm/Actions")
@@ -227,9 +229,9 @@ public:
     DEKI_EXPORT std::string spawnedName;
 };
 
-// Remove an object (and its children) from the running scene. An empty
-// targetObject destroys the object this FSM is on, which also stops the machine
-// — put it at the end of a flow.
+/// Removes an object and its children from the running scene. An empty
+/// targetObject destroys the object this FSM is on, which also stops the
+/// machine, so put it at the end of a flow.
 struct FsmDestroyObjectAction
 {
     DEKI_NODE(FsmDestroyObjectAction, "FsmDestroyObject", "Fsm/Actions")
@@ -241,8 +243,8 @@ public:
     DEKI_EXPORT DEKI_OBJECT_NAME() std::string targetObject;
 };
 
-// Reparent an object. An empty newParent moves it to the scene root, which is
-// how you detach a picked-up item from the hand that carried it.
+/// Moves an object under a new parent. An empty newParent moves it to the scene
+/// root, for example to detach a picked-up item from the hand that carried it.
 struct FsmSetParentAction
 {
     DEKI_NODE(FsmSetParentAction, "FsmSetParent", "Fsm/Actions")
@@ -255,10 +257,10 @@ public:
     DEKI_EXPORT DEKI_OBJECT_NAME() std::string newParent;
 };
 
-// Drive the target's Deki2D::AnimationComponent: pick a sequence and play it. When
-// `waitForFinish` is on the action finishes with the animation (so the flow
-// continues after it), otherwise it finishes immediately and the animation
-// keeps running on its own. `loop` off plays once.
+/// Plays a sequence on the target's Deki2D::AnimationComponent. With
+/// `waitForFinish` the action finishes with the animation, so the flow
+/// continues after it; otherwise it finishes at once and the animation keeps
+/// running by itself. With `loop` off it plays once.
 struct FsmPlayAnimationAction
 {
     DEKI_NODE(FsmPlayAnimationAction, "FsmPlayAnimation", "Fsm/Actions")
@@ -274,9 +276,9 @@ public:
     DEKI_EXPORT bool waitForFinish = false;
 };
 
-// Raise an event on ANOTHER object's FsmComponent (an empty targetObject means
-// this one). The machine-to-machine wire: a door's FSM telling the room's FSM
-// that it opened, without either knowing the other's states.
+/// Raises an event on another object's FsmComponent (an empty targetObject
+/// means this one). This is how machines talk: a door's FSM tells the room's
+/// FSM that it opened, without either knowing the other's states.
 struct FsmSendEventToAction
 {
     DEKI_NODE(FsmSendEventToAction, "FsmSendEventTo", "Fsm/Actions")
@@ -289,7 +291,7 @@ public:
     DEKI_EXPORT std::string eventName = "EVENT";
 };
 
-// Write a line to the console. The print-debugging of graphs: what ran, when.
+/// Writes a line to the console, to see what ran and when.
 struct FsmLogAction
 {
     DEKI_NODE(FsmLogAction, "FsmLog", "Fsm/Actions")
@@ -301,15 +303,15 @@ public:
     DEKI_EXPORT std::string message;
 };
 
-// Park here until the target's Deki2D::ButtonComponent is clicked, then continue down
-// "clicked". Never finishes otherwise, so it keeps watching for as long as its
-// state is active (clicks while another state is active are dropped) and
-// nothing downstream runs until one lands.
-//
-// This is the input-to-transition bridge: wire "clicked" to a Send Event action
-// and a button press becomes a state transition. Give each watched button its
-// own state (its own track wired from Update) rather than chaining watchers,
-// since a parked flow only ever watches one.
+/// Waits here until the target's Deki2D::ButtonComponent is clicked, then
+/// continues down "clicked". It keeps watching as long as its state is active
+/// (clicks while another state is active are dropped), and nothing after it
+/// runs until a click comes.
+///
+/// Wire "clicked" to a Send Event action and a button press becomes a state
+/// transition. Give each watched button its own state (its own track wired
+/// from Update) rather than chaining watchers, since a waiting flow only
+/// watches one.
 struct FsmWatchButtonAction
 {
     DEKI_NODE(FsmWatchButtonAction, "FsmWatchButton", "Fsm/Actions")

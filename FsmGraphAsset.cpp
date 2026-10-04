@@ -1,6 +1,6 @@
 #include "FsmGraph.h"
-#include "FsmNodes.h"    // pulls in the state node registrations (DekiNodeGraph::NodeFactory)
-#include "FsmActions.h"  // pulls in the action registrations (DekiNodeGraph::NodeFactory)
+#include "FsmNodes.h"    // links in the state node registrations (DekiNodeGraph::NodeFactory)
+#include "FsmActions.h"  // links in the action registrations (DekiNodeGraph::NodeFactory)
 
 #include <deki/assets/AssetManager.h>
 #include <deki/LogSystem.h>
@@ -12,11 +12,11 @@
 namespace DekiFsm
 {
 
-// Runtime loader for the FsmGraph state-machine asset. Mirrors the plain
-// data-asset loaders: the editor compiles the ".asset" JSON to a MessagePack
-// cache via the generic path, and here we parse that cache with the generic
-// DekiNodeGraph::NodeGraphData loader (which creates state/action instances via DekiNodeGraph::NodeFactory).
-// Same path on desktop and device. A malformed graph loads as nullptr, loudly.
+// Runtime loader for the FsmGraph asset, like the plain data-asset loaders:
+// the editor compiles the .asset JSON to a MessagePack cache, and this parses
+// it with the DekiNodeGraph::NodeGraphData loader, which creates the state and
+// action instances through DekiNodeGraph::NodeFactory. The same on desktop and
+// device. A malformed graph logs an error and loads as nullptr.
 
 namespace
 {
@@ -37,9 +37,9 @@ FsmGraph* LoadGraphFromMemory(const uint8_t* data, size_t size)
 bool s_GraphLoaderRegistered = false;
 }  // namespace
 
-// Called, not a static registrar: a firmware links the game from an archive,
-// and the linker drops an object nothing references, registrar and all. That
-// is how FsmGraph assets went unloadable on the device.
+// Must be called explicitly, not run by a static registrar: a firmware links
+// the game from an archive, and the linker drops an object nothing
+// references, registrar and all, leaving FsmGraph assets unloadable.
 void RegisterGraphLoader()
 {
     if (s_GraphLoaderRegistered)
@@ -52,8 +52,7 @@ void RegisterGraphLoader()
     // device (F:/assets/..., S:/...), which a std::ifstream cannot open.
     auto pathLoader = [](const char* p) -> void*
     {
-        // External, not a std::vector on the internal heap: the file
-        // is only held while it is parsed.
+        // In external memory: the file is only held while it is parsed.
         Deki::Buffer<uint8_t> buf;
         if (!Deki::AssetManager::ReadWholeFile(p, buf, Deki::Memory::External))
         {

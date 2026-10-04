@@ -16,49 +16,48 @@ namespace DekiFsm
 {
 class FsmComponent;
 
-// Passed to every action callback. Owner/fsm/dt plus the helpers actions need;
-// helpers are implemented by FsmComponent (FsmComponent.cpp).
+/// Passed to every action callback: the owner, the FSM and the frame time, plus
+/// the helpers actions need. FsmComponent.cpp implements the helpers.
 struct FsmContext
 {
-    Deki::Object* owner = nullptr;  // the object the FsmComponent sits on
+    Deki::Object* owner = nullptr;  // the object the FsmComponent is on
     FsmComponent* fsm = nullptr;
     float dt = 0.0f;  // seconds this frame
 
-    // Queue an event on the FSM (processed against the active state's
-    // transitions after the action pass).
+    /// Queues an event on the FSM. It is checked against the active state's
+    /// transitions after the action pass.
     void SendEvent(const std::string& name);
 
-    // "" = owner; else an object of the owner's scene by name. Returns
-    // nullptr AFTER latching the FSM failed (logged) — callers just bail.
+    /// "" means the owner; anything else names an object in the owner's
+    /// scene. When there is none, logs, marks the FSM failed and returns
+    /// nullptr, so callers just return.
     Deki::Object* ResolveTarget(const std::string& name);
 
-    // Log one error and latch the FSM failed (no fallback policy: a broken
-    // action stops the machine loudly instead of quietly misbehaving).
+    /// Logs one error and marks the FSM failed for good. A broken action
+    /// stops the machine visibly instead of quietly misbehaving.
     void Fail(const char* message);
 };
 
-// onUpdate return value: the action is still running, so nothing downstream of
-// it runs this frame. Anything >= 0 is the OUTPUT PIN the action finished on.
+/// onUpdate's return value while the action is still running: nothing after it
+/// runs this frame. Anything >= 0 is the output pin the action finished on.
 constexpr int kFsmActionRunning = -1;
 
-/**
- * @brief Runtime behavior for one action type.
- *
- * Action DATA lives in reflected structs shared by every FsmComponent using
- * the same graph asset, so per-run state goes in a separate blob the
- * interpreter allocates per action node: `stateSize` bytes, zero-initialized
- * when the action is entered, passed back to every callback. onEnter/onExit
- * may be null.
- *
- * onUpdate returns kFsmActionRunning while the action is still going, else the
- * index of the OUTPUT PIN it finished on — which is how a branching action
- * picks its successor (Compare Property returns 0 for true, 1 for false). A
- * single-outcome action returns 0. An action with no onUpdate at all is an
- * enter-only action: done on pin 0 the moment it runs.
- *
- * An action that never finishes (Watch Button, everyFrame setters) simply
- * always returns kFsmActionRunning, which parks the flow on it.
- */
+/// Runtime behavior for one action type.
+///
+/// An action's data lives in reflected structs shared by every FsmComponent
+/// using the same graph asset. So per-run state goes in a separate block the
+/// interpreter allocates per action node: `stateSize` bytes, zeroed when the
+/// action is entered and passed to every callback. onEnter and onExit may be
+/// null.
+///
+/// onUpdate returns kFsmActionRunning while the action is still going, else the
+/// index of the output pin it finished on. That is how a branching action picks
+/// what runs next (Compare Property returns 0 for true, 1 for false). An action
+/// with one outcome returns 0. An action with no onUpdate finishes on pin 0 as
+/// soon as it is entered.
+///
+/// An action that never finishes (Watch Button, everyFrame setters) always
+/// returns kFsmActionRunning, which keeps the flow on it.
 struct FsmActionOps
 {
     size_t stateSize = 0;
@@ -67,14 +66,10 @@ struct FsmActionOps
     void (*onExit)(const void* data, void* state, FsmContext& ctx) = nullptr;
 };
 
-/**
- * @brief typeId (Deki::HashString of the action's node name) -> runtime ops.
- *
- * The data structs self-register into DekiNodeGraph::NodeFactory via their generated code;
- * this registry carries the behavior half. Cleared implicitly on DLL unload
- * (static storage) — entries and the graphs referencing them live and die
- * with the same package/plugin DLLs.
- */
+/// Maps a typeId (Deki::HashString of the action's node name) to its runtime
+/// ops. The data structs register themselves with DekiNodeGraph::NodeFactory
+/// through their generated code; this registry holds the behavior. It is
+/// static storage, so it goes away with its DLL, as do the graphs that use it.
 class DEKI_FSM_API FsmActionRegistry
 {
 public:
@@ -92,13 +87,13 @@ private:
     std::unordered_map<uint32_t, FsmActionOps> m_Ops;
 };
 
-// Registers this package's own actions (FsmActionLibrary.cpp). Called from
-// DekiFsmInitSystem.
+/// Registers this package's own actions (FsmActionLibrary.cpp). Called from
+/// DekiFsmInitSystem.
 void RegisterActionLibrary();
 
-// Register runtime ops for an action struct (place at file scope in a .cpp,
-// next to the callbacks). ClassName must be a DEKI_NODE type; the key is the
-// hash of its node name, matching what the graph loader stores.
+// Registers runtime ops for an action struct. Put it at file scope in a .cpp,
+// next to the callbacks. ClassName must be a DEKI_NODE type; the key is the
+// hash of its node name, which is what the graph loader stores.
 #define REGISTER_FSM_ACTION(ClassName, Ops)                                                                            \
     static struct ClassName##_FsmActionRegistrar                                                                       \
     {                                                                                                                  \
