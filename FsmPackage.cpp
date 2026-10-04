@@ -4,7 +4,7 @@
  *
  * Exports the standard Deki plugin interface so the editor can load
  * deki-fsm.dll and register its components (FsmComponent). For linked DLLs
- * (not dynamically loaded), DekiFsm_EnsureRegistered() must be called from the
+ * (not dynamically loaded), DekiFsmEnsureRegistered() must be called from the
  * main executable to trigger the static initializers.
  */
 
@@ -18,9 +18,9 @@
 #include <deki/reflection/ComponentFactory.h>
 #include "deki-nodegraph/DekiNode.h"  // DekiNodeGraph::NodeFactory + DekiNodeGraph::NodeTypeRegistry (editor)
 
-extern void DekiFsm_RegisterComponents();
-extern int DekiFsm_GetAutoComponentCount();
-extern const Deki::ComponentMeta* DekiFsm_GetAutoComponentMeta(int index);
+extern void DekiFsmRegisterComponents();
+extern int DekiFsmGetAutoComponentCount();
+extern const Deki::ComponentMeta* DekiFsmGetAutoComponentMeta(int index);
 
 namespace DekiFsm
 {
@@ -35,7 +35,7 @@ namespace DekiFsm
 // registration helpers and statics live in its namespace.
 using namespace DekiFsm;
 
-extern "C" void DekiFsm_RegisterEditorGraphDomain(void);
+extern "C" void DekiFsmRegisterEditorGraphDomain(void);
 
 static bool s_FsmRegistered = false;
 
@@ -63,10 +63,10 @@ extern "C"
     /**
      * @brief (Re-)register this package's node graph types: state/action node
      * factories, editor metas, and the Fsm graph domain. Called at package load via
-     * ::DekiPlugin_RegisterComponents and again after any registry wipe that keeps
+     * ::DekiPluginRegisterComponents and again after any registry wipe that keeps
      * this DLL loaded (plugin-only hot reload).
      */
-    DEKI_FSM_API void DekiFsm_RegisterGraphTypes(void)
+    DEKI_FSM_API void DekiFsmRegisterGraphTypes(void)
     {
         RegisterFsmNodeType<FsmStartNode>();
         RegisterFsmNodeType<FsmAwakeNode>();
@@ -94,24 +94,24 @@ extern "C"
         RegisterFsmNodeType<FsmSendEventToAction>();
         RegisterFsmNodeType<FsmLogAction>();
         RegisterFsmNodeType<FsmWatchButtonAction>();
-        DekiFsm_RegisterEditorGraphDomain();
+        DekiFsmRegisterEditorGraphDomain();
     }
 
     /**
      * @brief Ensure deki-fsm package is loaded and components are registered.
      * @return Number of components registered by this package
      */
-    DEKI_FSM_API int DekiFsm_EnsureRegistered(void)
+    DEKI_FSM_API int DekiFsmEnsureRegistered(void)
     {
         if (s_FsmRegistered)
         {
-            return ::DekiFsm_GetAutoComponentCount();
+            return ::DekiFsmGetAutoComponentCount();
         }
         s_FsmRegistered = true;
 
-        ::DekiFsm_RegisterComponents();
+        ::DekiFsmRegisterComponents();
 
-        return ::DekiFsm_GetAutoComponentCount();
+        return ::DekiFsmGetAutoComponentCount();
     }
 
 }  // extern "C"
@@ -122,12 +122,12 @@ extern "C"
 
 extern "C"
 {
-    DEKI_PLUGIN_API const char* DekiPlugin_GetName(void)
+    DEKI_PLUGIN_API const char* DekiPluginGetName(void)
     {
         return "Deki FSM Package";
     }
 
-    DEKI_PLUGIN_API const char* DekiPlugin_GetVersion(void)
+    DEKI_PLUGIN_API const char* DekiPluginGetVersion(void)
     {
 #ifdef DEKI_PACKAGE_VERSION
         return DEKI_PACKAGE_VERSION;
@@ -136,37 +136,37 @@ extern "C"
 #endif
     }
 
-    DEKI_PLUGIN_API int DekiPlugin_Init(void)
+    DEKI_PLUGIN_API int DekiPluginInit(void)
     {
-        DekiFsm_InitSystem();
+        DekiFsmInitSystem();
         return 0;
     }
 
-    DEKI_PLUGIN_API void DekiPlugin_Shutdown(void)
+    DEKI_PLUGIN_API void DekiPluginShutdown(void)
     {
         s_FsmRegistered = false;
     }
 
-    DEKI_PLUGIN_API int DekiPlugin_GetComponentCount(void)
+    DEKI_PLUGIN_API int DekiPluginGetComponentCount(void)
     {
-        return ::DekiFsm_GetAutoComponentCount();
+        return ::DekiFsmGetAutoComponentCount();
     }
 
-    DEKI_PLUGIN_API const Deki::ComponentMeta* DekiPlugin_GetComponentMeta(int index)
+    DEKI_PLUGIN_API const Deki::ComponentMeta* DekiPluginGetComponentMeta(int index)
     {
-        return ::DekiFsm_GetAutoComponentMeta(index);
+        return ::DekiFsmGetAutoComponentMeta(index);
     }
 
-    DEKI_PLUGIN_API void DekiPlugin_RegisterComponents(void)
+    DEKI_PLUGIN_API void DekiPluginRegisterComponents(void)
     {
-        DekiFsm_EnsureRegistered();
+        DekiFsmEnsureRegistered();
         // Deliberately OUTSIDE the s_FsmRegistered latch: node registries are
         // wiped on every hot reload (full or plugin-only) and this export is the
         // re-registration path for the plugin-only case.
-        DekiFsm_RegisterGraphTypes();
+        DekiFsmRegisterGraphTypes();
     }
 
-    DEKI_PLUGIN_API void DekiPlugin_OnPlayModeStop(void)
+    DEKI_PLUGIN_API void DekiPluginOnPlayModeStop(void)
     {
         // Machine state lives per FsmComponent instance; instances die with the
         // play-mode scene, so there is nothing global to reset here.
@@ -180,7 +180,7 @@ extern "C"
     // Package-specific feature API (for linked DLL access without name conflicts)
     // =============================================================================
 
-    DEKI_FSM_API const char* DekiFsm_GetName(void)
+    DEKI_FSM_API const char* DekiFsmGetName(void)
     {
         return "FSM";
     }

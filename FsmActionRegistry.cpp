@@ -5,8 +5,8 @@ namespace DekiFsm
 
 FsmActionRegistry& FsmActionRegistry::Instance()
 {
-    static FsmActionRegistry instance;
-    return instance;
+    static FsmActionRegistry s_Instance;
+    return s_Instance;
 }
 
 }  // namespace DekiFsm

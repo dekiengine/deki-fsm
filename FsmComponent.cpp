@@ -52,7 +52,7 @@ constexpr int kMaxActionStepsPerFrame = 256;
 // another group leads to another... this bounds that walk.
 constexpr int kMaxFlowHops = 32;
 
-const char* kFinishedEvent = "FINISHED";
+const char* const kFinishedEvent = "FINISHED";
 
 const std::string kEmptyName;
 

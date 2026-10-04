@@ -16,7 +16,7 @@ struct FsmGraph
     // Asset type name for AssetRef<FsmGraph> / AssetManager lookup. Matches
     // the ".asset" file's "type" field, the runtime loader registration, and
     // the editor's node-graph domain registration.
-    static constexpr const char* AssetTypeName = "FsmGraph";
+    static constexpr const char* kAssetTypeName = "FsmGraph";
 
     DekiNodeGraph::NodeGraphData* data = nullptr;
 
@@ -24,7 +24,7 @@ struct FsmGraph
 };
 
 // Registers the FsmGraph asset loader. Idempotent. Called from
-// DekiFsm_InitSystem (FsmInit.h), which is also what gets FsmGraphAsset.cpp,
+// DekiFsmInitSystem (FsmInit.h), which is also what gets FsmGraphAsset.cpp,
 // with the state and action registrations it includes, into a firmware.
 void RegisterGraphLoader();
 

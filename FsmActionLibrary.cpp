@@ -180,7 +180,7 @@ struct WaitState
     float seconds;
 };
 
-void Wait_Enter(const void* data, void* state, FsmContext& ctx)
+void WaitEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmWaitAction*>(data);
     auto* s = static_cast<WaitState*>(state);
@@ -195,7 +195,7 @@ void Wait_Enter(const void* data, void* state, FsmContext& ctx)
     }
 }
 
-int Wait_Update(const void* data, void* state, FsmContext& ctx)
+int WaitUpdate(const void* data, void* state, FsmContext& ctx)
 {
     (void)data;
     auto* s = static_cast<WaitState*>(state);
@@ -203,7 +203,7 @@ int Wait_Update(const void* data, void* state, FsmContext& ctx)
     return s->elapsed >= s->seconds ? kDone : kFsmActionRunning;
 }
 
-const FsmActionOps kWaitOps = { sizeof(WaitState), &Wait_Enter, &Wait_Update, nullptr };
+const FsmActionOps kWaitOps = { sizeof(WaitState), &WaitEnter, &WaitUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Send Event
@@ -215,7 +215,7 @@ struct SendEventState
     uint8_t sent;
 };
 
-int SendEvent_Update(const void* data, void* state, FsmContext& ctx)
+int SendEventUpdate(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSendEventAction*>(data);
     auto* s = static_cast<SendEventState*>(state);
@@ -238,19 +238,19 @@ int SendEvent_Update(const void* data, void* state, FsmContext& ctx)
     return kFsmActionRunning;
 }
 
-const FsmActionOps kSendEventOps = { sizeof(SendEventState), nullptr, &SendEvent_Update, nullptr };
+const FsmActionOps kSendEventOps = { sizeof(SendEventState), nullptr, &SendEventUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Set Property
 // ---------------------------------------------------------------------------
 
-void SetProperty_Enter(const void* data, void* state, FsmContext& ctx)
+void SetPropertyEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSetPropertyAction*>(data);
     BindOrFailFrom(ctx, d->target, d->value, d->valueVariable, "Set Property", static_cast<BoundState*>(state));
 }
 
-int SetProperty_Update(const void* data, void* state, FsmContext& ctx)
+int SetPropertyUpdate(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSetPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
@@ -273,13 +273,13 @@ int SetProperty_Update(const void* data, void* state, FsmContext& ctx)
     return d->everyFrame ? kFsmActionRunning : kDone;  // everyFrame parks the flow
 }
 
-const FsmActionOps kSetPropertyOps = { sizeof(BoundState), &SetProperty_Enter, &SetProperty_Update, nullptr };
+const FsmActionOps kSetPropertyOps = { sizeof(BoundState), &SetPropertyEnter, &SetPropertyUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Compare Property
 // ---------------------------------------------------------------------------
 
-void Compare_Enter(const void* data, void* state, FsmContext& ctx)
+void CompareEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmComparePropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
@@ -299,7 +299,7 @@ void Compare_Enter(const void* data, void* state, FsmContext& ctx)
     }
 }
 
-int Compare_Update(const void* data, void* state, FsmContext& ctx)
+int CompareUpdate(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmComparePropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
@@ -330,7 +330,7 @@ int Compare_Update(const void* data, void* state, FsmContext& ctx)
     return holds ? kTruePin : kFalsePin;
 }
 
-const FsmActionOps kCompareOps = { sizeof(BoundState), &Compare_Enter, &Compare_Update, nullptr };
+const FsmActionOps kCompareOps = { sizeof(BoundState), &CompareEnter, &CompareUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Tween Property
@@ -348,7 +348,7 @@ struct TweenState
     double start2;   // second axis (Vector2 targets)
 };
 
-void Tween_Enter(const void* data, void* state, FsmContext& ctx)
+void TweenEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmTweenPropertyAction*>(data);
     auto* s = static_cast<TweenState*>(state);
@@ -402,7 +402,7 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
     s->bound = 1;
 }
 
-int Tween_Update(const void* data, void* state, FsmContext& ctx)
+int TweenUpdate(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmTweenPropertyAction*>(data);
     auto* s = static_cast<TweenState*>(state);
@@ -426,13 +426,13 @@ int Tween_Update(const void* data, void* state, FsmContext& ctx)
     return u >= 1.0f ? kDone : kFsmActionRunning;
 }
 
-const FsmActionOps kTweenOps = { sizeof(TweenState), &Tween_Enter, &Tween_Update, nullptr };
+const FsmActionOps kTweenOps = { sizeof(TweenState), &TweenEnter, &TweenUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Modify Property (arithmetic on any numeric target)
 // ---------------------------------------------------------------------------
 
-void Modify_Enter(const void* data, void* state, FsmContext& ctx)
+void ModifyEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmModifyPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
@@ -449,7 +449,7 @@ void Modify_Enter(const void* data, void* state, FsmContext& ctx)
     }
 }
 
-int Modify_Update(const void* data, void* state, FsmContext& ctx)
+int ModifyUpdate(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmModifyPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
@@ -506,13 +506,13 @@ int Modify_Update(const void* data, void* state, FsmContext& ctx)
     return d->everyFrame ? kFsmActionRunning : kDone;
 }
 
-const FsmActionOps kModifyOps = { sizeof(BoundState), &Modify_Enter, &Modify_Update, nullptr };
+const FsmActionOps kModifyOps = { sizeof(BoundState), &ModifyEnter, &ModifyUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Random Property
 // ---------------------------------------------------------------------------
 
-void Random_Enter(const void* data, void* state, FsmContext& ctx)
+void RandomEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmRandomPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
@@ -530,7 +530,7 @@ void Random_Enter(const void* data, void* state, FsmContext& ctx)
     s->bound = 1;
 }
 
-int Random_Update(const void* data, void* state, FsmContext& /*ctx*/)
+int RandomUpdate(const void* data, void* state, FsmContext& /*ctx*/)
 {
     const auto* d = static_cast<const FsmRandomPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
@@ -563,13 +563,13 @@ int Random_Update(const void* data, void* state, FsmContext& /*ctx*/)
     return kDone;
 }
 
-const FsmActionOps kRandomOps = { sizeof(BoundState), &Random_Enter, &Random_Update, nullptr };
+const FsmActionOps kRandomOps = { sizeof(BoundState), &RandomEnter, &RandomUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Spawn Scene
 // ---------------------------------------------------------------------------
 
-int Spawn_Update(const void* data, void* /*state*/, FsmContext& ctx)
+int SpawnUpdate(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSpawnSceneAction*>(data);
 
@@ -609,13 +609,13 @@ int Spawn_Update(const void* data, void* /*state*/, FsmContext& ctx)
     return kDone;
 }
 
-const FsmActionOps kSpawnOps = { 0, nullptr, &Spawn_Update, nullptr };
+const FsmActionOps kSpawnOps = { 0, nullptr, &SpawnUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Destroy Object
 // ---------------------------------------------------------------------------
 
-int Destroy_Update(const void* data, void* /*state*/, FsmContext& ctx)
+int DestroyUpdate(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmDestroyObjectAction*>(data);
 
@@ -635,13 +635,13 @@ int Destroy_Update(const void* data, void* /*state*/, FsmContext& ctx)
     return kDone;
 }
 
-const FsmActionOps kDestroyOps = { 0, nullptr, &Destroy_Update, nullptr };
+const FsmActionOps kDestroyOps = { 0, nullptr, &DestroyUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Set Parent
 // ---------------------------------------------------------------------------
 
-int SetParent_Update(const void* data, void* /*state*/, FsmContext& ctx)
+int SetParentUpdate(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSetParentAction*>(data);
 
@@ -666,7 +666,7 @@ int SetParent_Update(const void* data, void* /*state*/, FsmContext& ctx)
     return kDone;
 }
 
-const FsmActionOps kSetParentOps = { 0, nullptr, &SetParent_Update, nullptr };
+const FsmActionOps kSetParentOps = { 0, nullptr, &SetParentUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Play Animation
@@ -677,7 +677,7 @@ struct PlayAnimState
     Deki2D::AnimationComponent* anim;
 };
 
-void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
+void PlayAnimEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmPlayAnimationAction*>(data);
     auto* s = static_cast<PlayAnimState*>(state);
@@ -705,7 +705,7 @@ void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
     s->anim = anim;
 }
 
-int PlayAnim_Update(const void* data, void* state, FsmContext& /*ctx*/)
+int PlayAnimUpdate(const void* data, void* state, FsmContext& /*ctx*/)
 {
     const auto* d = static_cast<const FsmPlayAnimationAction*>(data);
     auto* s = static_cast<PlayAnimState*>(state);
@@ -720,13 +720,13 @@ int PlayAnim_Update(const void* data, void* state, FsmContext& /*ctx*/)
     return (s->anim->hasFinished || !s->anim->isPlaying) ? kDone : kFsmActionRunning;
 }
 
-const FsmActionOps kPlayAnimOps = { sizeof(PlayAnimState), &PlayAnim_Enter, &PlayAnim_Update, nullptr };
+const FsmActionOps kPlayAnimOps = { sizeof(PlayAnimState), &PlayAnimEnter, &PlayAnimUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Send Event To
 // ---------------------------------------------------------------------------
 
-int SendEventTo_Update(const void* data, void* /*state*/, FsmContext& ctx)
+int SendEventToUpdate(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSendEventToAction*>(data);
 
@@ -754,20 +754,20 @@ int SendEventTo_Update(const void* data, void* /*state*/, FsmContext& ctx)
     return kDone;
 }
 
-const FsmActionOps kSendEventToOps = { 0, nullptr, &SendEventTo_Update, nullptr };
+const FsmActionOps kSendEventToOps = { 0, nullptr, &SendEventToUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Log
 // ---------------------------------------------------------------------------
 
-int Log_Update(const void* data, void* /*state*/, FsmContext& ctx)
+int LogUpdate(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmLogAction*>(data);
     DEKI_LOG_INFO("FSM (%s): %s", ctx.owner ? ctx.owner->GetName().c_str() : "?", d->message.c_str());
     return kDone;
 }
 
-const FsmActionOps kLogOps = { 0, nullptr, &Log_Update, nullptr };
+const FsmActionOps kLogOps = { 0, nullptr, &LogUpdate, nullptr };
 
 // ---------------------------------------------------------------------------
 // Watch Button
@@ -781,7 +781,7 @@ struct WatchButtonState
     bool* clicked;
 };
 
-void WatchButton_Enter(const void* data, void* state, FsmContext& ctx)
+void WatchButtonEnter(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmWatchButtonAction*>(data);
     auto* s = static_cast<WatchButtonState*>(state);
@@ -807,7 +807,7 @@ void WatchButton_Enter(const void* data, void* state, FsmContext& ctx)
     s->clicked = ctx.fsm->EnsureClickWatch(data, button).get();
 }
 
-int WatchButton_Update(const void* /*data*/, void* state, FsmContext& /*ctx*/)
+int WatchButtonUpdate(const void* /*data*/, void* state, FsmContext& /*ctx*/)
 {
     auto* s = static_cast<WatchButtonState*>(state);
     if (!s->clicked)
@@ -823,14 +823,14 @@ int WatchButton_Update(const void* /*data*/, void* state, FsmContext& /*ctx*/)
     return kFsmActionRunning;  // keeps watching while the state is active
 }
 
-const FsmActionOps kWatchButtonOps = { sizeof(WatchButtonState), &WatchButton_Enter, &WatchButton_Update, nullptr };
+const FsmActionOps kWatchButtonOps = { sizeof(WatchButtonState), &WatchButtonEnter, &WatchButtonUpdate, nullptr };
 
 }  // namespace
 
 // ---------------------------------------------------------------------------
 // Registration (typeId = hash of the node name, as stored by the graph loader)
 //
-// Called from DekiFsm_InitSystem rather than done by REGISTER_FSM_ACTION
+// Called from DekiFsmInitSystem rather than done by REGISTER_FSM_ACTION
 // statics: a firmware links the game from an archive, and the linker drops an
 // object nothing references, registrars and all, which left every action
 // without runtime ops on the device.

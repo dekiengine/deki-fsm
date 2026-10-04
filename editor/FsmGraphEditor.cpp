@@ -69,19 +69,19 @@ REGISTER_EDITOR(FsmGraphAssetEditor)
 
 }  // namespace DekiEditor
 
-REGISTER_NODE_GRAPH_DOMAIN(g_FsmDomain, "FsmGraph", "State Machine", "Fsm", "FsmStart");
+REGISTER_NODE_GRAPH_DOMAIN(kFsmDomain, "FsmGraph", "State Machine", "Fsm", "FsmStart");
 
 // Re-registration hook for plugin-only hot reload: the editor wipes the domain
 // registry while this DLL stays loaded, so the static registrar above never
 // reruns. Registry Register() dedupes, so calling this repeatedly is safe.
-// Invoked from DekiFsm_RegisterGraphTypes (FsmPackage.cpp).
+// Invoked from DekiFsmRegisterGraphTypes (FsmPackage.cpp).
 // The exports below are C symbols at global scope; the package's own
 // registration helpers and statics live in its namespace.
 using namespace DekiEditor;
 
-extern "C" void DekiFsm_RegisterEditorGraphDomain(void)
+extern "C" void DekiFsmRegisterEditorGraphDomain(void)
 {
-    DekiNodeGraph::NodeGraphDomainRegistry::Instance().Register(&g_FsmDomain);
+    DekiNodeGraph::NodeGraphDomainRegistry::Instance().Register(&kFsmDomain);
 }
 
 #endif  // DEKI_EDITOR

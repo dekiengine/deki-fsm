@@ -8,6 +8,13 @@ breaking change bumps the minor across the editor, the engine and every
 package together, so a package with no changes of its own is still released
 alongside one that has them.
 
+## Unreleased
+
+### Changed
+- **Names follow the code style** (deki-engine/docs/codestyle): types, functions and enum values are PascalCase, constants kPascalCase, members m_PascalCase, locals and parameters camelCase. The code is formatted with clang-format 22.
+- The functions the editor finds by name are PascalCase: DekiFsmRegisterComponents, DekiFsmGetAutoComponentCount, DekiFsmEnsureRegistered and the rest. Built against engine ABI 21; a build of this package from before does not load and is rebuilt.
+- Renamed: `AssetTypeName` is `kAssetTypeName`; a node's `StaticNodeDisplayName` and `StaticNodeDescription` are `kStaticNodeDisplayName` and `kStaticNodeDescription`.
+
 ## 0.17.0
 
 ### Changed

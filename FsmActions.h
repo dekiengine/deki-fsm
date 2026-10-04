@@ -5,7 +5,7 @@
 #include "deki-nodegraph/DekiNode.h"
 #include <deki/reflection/PropertyRef.h>  // PropertyRef (picked component field)
 #include <deki/assets/AssetRef.h>         // AssetRef<Scene> (Spawn Scene)
-#include <deki/Scene.h>                   // Scene::AssetTypeName
+#include <deki/Scene.h>                   // Scene::kAssetTypeName
 #include "deki-tween/Easing.h"            // DekiTween::EaseType (Tween Property easing)
 
 namespace DekiFsm
@@ -79,8 +79,8 @@ enum class FsmMathOp : uint8_t
 struct FsmWaitAction
 {
     DEKI_NODE(FsmWaitAction, "FsmWait", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Wait";
-    static constexpr const char* StaticNodeDescription = "Do nothing for a set number of seconds, then continue.";
+    static constexpr const char* kStaticNodeDisplayName = "Wait";
+    static constexpr const char* kStaticNodeDescription = "Do nothing for a set number of seconds, then continue.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -94,8 +94,8 @@ public:
 struct FsmSendEventAction
 {
     DEKI_NODE(FsmSendEventAction, "FsmSendEvent", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Send Event";
-    static constexpr const char* StaticNodeDescription = "Raise an event on this FSM, optionally after a delay.";
+    static constexpr const char* kStaticNodeDisplayName = "Send Event";
+    static constexpr const char* kStaticNodeDescription = "Raise an event on this FSM, optionally after a delay.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -111,8 +111,8 @@ public:
 struct FsmSetPropertyAction
 {
     DEKI_NODE(FsmSetPropertyAction, "FsmSetProperty", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Set Property";
-    static constexpr const char* StaticNodeDescription = "Write a value into any component field or variable.";
+    static constexpr const char* kStaticNodeDisplayName = "Set Property";
+    static constexpr const char* kStaticNodeDescription = "Write a value into any component field or variable.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -133,8 +133,8 @@ public:
 struct FsmComparePropertyAction
 {
     DEKI_NODE(FsmComparePropertyAction, "FsmCompareProperty", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Compare Property";
-    static constexpr const char* StaticNodeDescription = "The if: compare a field, then continue down true or false.";
+    static constexpr const char* kStaticNodeDisplayName = "Compare Property";
+    static constexpr const char* kStaticNodeDescription = "The if: compare a field, then continue down true or false.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("true", "false")
 public:
@@ -154,8 +154,8 @@ public:
 struct FsmTweenPropertyAction
 {
     DEKI_NODE(FsmTweenPropertyAction, "FsmTweenProperty", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Tween Property";
-    static constexpr const char* StaticNodeDescription = "Ease a numeric field to a new value over time.";
+    static constexpr const char* kStaticNodeDisplayName = "Tween Property";
+    static constexpr const char* kStaticNodeDescription = "Ease a numeric field to a new value over time.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -175,8 +175,8 @@ public:
 struct FsmModifyPropertyAction
 {
     DEKI_NODE(FsmModifyPropertyAction, "FsmModifyProperty", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Modify Property";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "Modify Property";
+    static constexpr const char* kStaticNodeDescription =
         "Do arithmetic on a number field or variable. The score and health workhorse.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
@@ -194,8 +194,8 @@ public:
 struct FsmRandomPropertyAction
 {
     DEKI_NODE(FsmRandomPropertyAction, "FsmRandomProperty", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Random Property";
-    static constexpr const char* StaticNodeDescription = "Write a random number into a number field or variable.";
+    static constexpr const char* kStaticNodeDisplayName = "Random Property";
+    static constexpr const char* kStaticNodeDescription = "Write a random number into a number field or variable.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -215,8 +215,8 @@ public:
 struct FsmSpawnSceneAction
 {
     DEKI_NODE(FsmSpawnSceneAction, "FsmSpawnScene", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Spawn Scene";
-    static constexpr const char* StaticNodeDescription = "Instantiate a scene into the running scene.";
+    static constexpr const char* kStaticNodeDisplayName = "Spawn Scene";
+    static constexpr const char* kStaticNodeDescription = "Instantiate a scene into the running scene.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -233,8 +233,8 @@ public:
 struct FsmDestroyObjectAction
 {
     DEKI_NODE(FsmDestroyObjectAction, "FsmDestroyObject", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Destroy Object";
-    static constexpr const char* StaticNodeDescription = "Remove an object and its children from the scene.";
+    static constexpr const char* kStaticNodeDisplayName = "Destroy Object";
+    static constexpr const char* kStaticNodeDescription = "Remove an object and its children from the scene.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -246,8 +246,8 @@ public:
 struct FsmSetParentAction
 {
     DEKI_NODE(FsmSetParentAction, "FsmSetParent", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Set Parent";
-    static constexpr const char* StaticNodeDescription = "Move an object under a new parent, or out to the root.";
+    static constexpr const char* kStaticNodeDisplayName = "Set Parent";
+    static constexpr const char* kStaticNodeDescription = "Move an object under a new parent, or out to the root.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -262,8 +262,8 @@ public:
 struct FsmPlayAnimationAction
 {
     DEKI_NODE(FsmPlayAnimationAction, "FsmPlayAnimation", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Play Animation";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "Play Animation";
+    static constexpr const char* kStaticNodeDescription =
         "Play an animation on the target, optionally waiting for it to finish.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
@@ -280,8 +280,8 @@ public:
 struct FsmSendEventToAction
 {
     DEKI_NODE(FsmSendEventToAction, "FsmSendEventTo", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Send Event To";
-    static constexpr const char* StaticNodeDescription = "Raise an event on another object's FSM.";
+    static constexpr const char* kStaticNodeDisplayName = "Send Event To";
+    static constexpr const char* kStaticNodeDescription = "Raise an event on another object's FSM.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -293,8 +293,8 @@ public:
 struct FsmLogAction
 {
     DEKI_NODE(FsmLogAction, "FsmLog", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Log";
-    static constexpr const char* StaticNodeDescription = "Write a line to the console.";
+    static constexpr const char* kStaticNodeDisplayName = "Log";
+    static constexpr const char* kStaticNodeDescription = "Write a line to the console.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -313,8 +313,8 @@ public:
 struct FsmWatchButtonAction
 {
     DEKI_NODE(FsmWatchButtonAction, "FsmWatchButton", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Watch Button";
-    static constexpr const char* StaticNodeDescription = "Wait here until the target button is clicked.";
+    static constexpr const char* kStaticNodeDisplayName = "Watch Button";
+    static constexpr const char* kStaticNodeDescription = "Wait here until the target button is clicked.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("clicked")
 public:

@@ -93,7 +93,7 @@ private:
 };
 
 // Registers this package's own actions (FsmActionLibrary.cpp). Called from
-// DekiFsm_InitSystem.
+// DekiFsmInitSystem.
 void RegisterActionLibrary();
 
 // Register runtime ops for an action struct (place at file scope in a .cpp,

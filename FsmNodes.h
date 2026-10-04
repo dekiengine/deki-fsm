@@ -37,8 +37,8 @@ namespace DekiFsm
 struct FsmStartNode
 {
     DEKI_NODE(FsmStartNode, "FsmStart", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "Start";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "Start";
+    static constexpr const char* kStaticNodeDescription =
         "Main flow entry, like Start(). Wire it to the machine's first state.";
     DEKI_NODE_OUTPUTS("start")
     DEKI_NODE_PERMANENT()
@@ -51,8 +51,8 @@ struct FsmStartNode
 struct FsmAwakeNode
 {
     DEKI_NODE(FsmAwakeNode, "FsmAwake", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "Awake";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "Awake";
+    static constexpr const char* kStaticNodeDescription =
         "Setup flow entry, like Awake(). Its track runs before Start and Update.";
     DEKI_NODE_OUTPUTS("start")
     DEKI_NODE_PERMANENT()
@@ -66,8 +66,8 @@ struct FsmAwakeNode
 struct FsmUpdateNode
 {
     DEKI_NODE(FsmUpdateNode, "FsmUpdate", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "Update";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "Update";
+    static constexpr const char* kStaticNodeDescription =
         "Per-frame flow entry, like Update(). Where watcher states live.";
     DEKI_NODE_OUTPUTS("start")
     DEKI_NODE_PERMANENT()
@@ -81,8 +81,8 @@ struct FsmUpdateNode
 struct FsmStateNode
 {
     DEKI_NODE(FsmStateNode, "FsmState", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "State";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "State";
+    static constexpr const char* kStaticNodeDescription =
         "One state. Holds its actions inside, and one output per transition event.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_DYNAMIC_OUTPUTS("transitions")
@@ -107,8 +107,8 @@ public:
 struct FsmActionEntryNode
 {
     DEKI_NODE(FsmActionEntryNode, "FsmActionEntry", "Fsm/Actions")
-    static constexpr const char* StaticNodeDisplayName = "Entry";
-    static constexpr const char* StaticNodeDescription = "Where a state's action flow starts.";
+    static constexpr const char* kStaticNodeDisplayName = "Entry";
+    static constexpr const char* kStaticNodeDescription = "Where a state's action flow starts.";
     DEKI_NODE_OUTPUTS("run")
     DEKI_NODE_PERMANENT()
 };
@@ -128,8 +128,8 @@ struct FsmActionEntryNode
 struct FsmGroupNode
 {
     DEKI_NODE(FsmGroupNode, "FsmGroup", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "Group";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "Group";
+    static constexpr const char* kStaticNodeDescription =
         "A box holding a sub-flow of states. Tidies the canvas, changes nothing at runtime.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_DYNAMIC_OUTPUTS("exits")
@@ -149,8 +149,8 @@ public:
 struct FsmGroupInNode
 {
     DEKI_NODE(FsmGroupInNode, "FsmGroupIn", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "Group In";
-    static constexpr const char* StaticNodeDescription =
+    static constexpr const char* kStaticNodeDisplayName = "Group In";
+    static constexpr const char* kStaticNodeDescription =
         "The inside of a group's input: wire it to the group's first state.";
     DEKI_NODE_OUTPUTS("in")
     DEKI_NODE_PERMANENT()
@@ -164,8 +164,8 @@ struct FsmGroupInNode
 struct FsmGroupExitNode
 {
     DEKI_NODE(FsmGroupExitNode, "FsmGroupExit", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "Group Exit";
-    static constexpr const char* StaticNodeDescription = "Leaves the group through the output pin with this name.";
+    static constexpr const char* kStaticNodeDisplayName = "Group Exit";
+    static constexpr const char* kStaticNodeDescription = "Leaves the group through the output pin with this name.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_TITLE_PROPERTY("name")
 public:
@@ -189,8 +189,8 @@ public:
 struct FsmVariablesNode
 {
     DEKI_NODE(FsmVariablesNode, "FsmVariables", "Fsm/Flow")
-    static constexpr const char* StaticNodeDisplayName = "Variables";
-    static constexpr const char* StaticNodeDescription = "The graph's variables and their starting values.";
+    static constexpr const char* kStaticNodeDisplayName = "Variables";
+    static constexpr const char* kStaticNodeDescription = "The graph's variables and their starting values.";
     DEKI_NODE_CHILDREN("Fsm/Variables")
     DEKI_NODE_VARIABLES()
     DEKI_NODE_PERMANENT()
@@ -202,8 +202,8 @@ struct FsmVariablesNode
 struct FsmNumberVariable
 {
     DEKI_NODE(FsmNumberVariable, "FsmNumberVar", "Fsm/Variables")
-    static constexpr const char* StaticNodeDisplayName = "Number";
-    static constexpr const char* StaticNodeDescription = "A number variable.";
+    static constexpr const char* kStaticNodeDisplayName = "Number";
+    static constexpr const char* kStaticNodeDescription = "A number variable.";
     DEKI_NODE_TITLE_PROPERTY("name")
 public:
     DEKI_EXPORT std::string name = "number";
@@ -213,8 +213,8 @@ public:
 struct FsmBoolVariable
 {
     DEKI_NODE(FsmBoolVariable, "FsmBoolVar", "Fsm/Variables")
-    static constexpr const char* StaticNodeDisplayName = "Bool";
-    static constexpr const char* StaticNodeDescription = "A true or false variable.";
+    static constexpr const char* kStaticNodeDisplayName = "Bool";
+    static constexpr const char* kStaticNodeDescription = "A true or false variable.";
     DEKI_NODE_TITLE_PROPERTY("name")
 public:
     DEKI_EXPORT std::string name = "flag";
@@ -224,8 +224,8 @@ public:
 struct FsmTextVariable
 {
     DEKI_NODE(FsmTextVariable, "FsmTextVar", "Fsm/Variables")
-    static constexpr const char* StaticNodeDisplayName = "Text";
-    static constexpr const char* StaticNodeDescription = "A text variable.";
+    static constexpr const char* kStaticNodeDisplayName = "Text";
+    static constexpr const char* kStaticNodeDescription = "A text variable.";
     DEKI_NODE_TITLE_PROPERTY("name")
 public:
     DEKI_EXPORT std::string name = "text";

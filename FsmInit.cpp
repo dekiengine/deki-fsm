@@ -3,12 +3,12 @@
 #include "FsmGraph.h"
 
 // Global scope, matching FsmInit.h - see the comment there.
-void DekiFsm_InitSystem()
+void DekiFsmInitSystem()
 {
     DekiFsm::RegisterGraphLoader();
     DekiFsm::RegisterActionLibrary();
 }
 
-void DekiFsm_ShutdownSystem()
+void DekiFsmShutdownSystem()
 {
 }
