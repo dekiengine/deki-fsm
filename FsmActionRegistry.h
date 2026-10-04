@@ -1,13 +1,16 @@
 #pragma once
 
-#include "FsmApi.h"   // DEKI_FSM_API
+#include "FsmApi.h"  // DEKI_FSM_API
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
 
-namespace Deki { class Object; }
+namespace Deki
+{
+class Object;
+}
 
 namespace DekiFsm
 {
@@ -17,9 +20,9 @@ class FsmComponent;
 // helpers are implemented by FsmComponent (FsmComponent.cpp).
 struct FsmContext
 {
-    Deki::Object* owner = nullptr;   // the object the FsmComponent sits on
+    Deki::Object* owner = nullptr;  // the object the FsmComponent sits on
     FsmComponent* fsm = nullptr;
-    float dt = 0.0f;               // seconds this frame
+    float dt = 0.0f;  // seconds this frame
 
     // Queue an event on the FSM (processed against the active state's
     // transitions after the action pass).
@@ -96,12 +99,13 @@ void RegisterActionLibrary();
 // Register runtime ops for an action struct (place at file scope in a .cpp,
 // next to the callbacks). ClassName must be a DEKI_NODE type; the key is the
 // hash of its node name, matching what the graph loader stores.
-#define REGISTER_FSM_ACTION(ClassName, Ops) \
-    static struct ClassName##_FsmActionRegistrar { \
-        ClassName##_FsmActionRegistrar() { \
-            FsmActionRegistry::Instance().Register( \
-                ::Deki::HashString(ClassName::StaticNodeName), Ops); \
-        } \
+#define REGISTER_FSM_ACTION(ClassName, Ops)                                                                            \
+    static struct ClassName##_FsmActionRegistrar                                                                       \
+    {                                                                                                                  \
+        ClassName##_FsmActionRegistrar()                                                                               \
+        {                                                                                                              \
+            FsmActionRegistry::Instance().Register(::Deki::HashString(ClassName::StaticNodeName), Ops);                \
+        }                                                                                                              \
     } s_##ClassName##_FsmActionRegistrar
 
 }  // namespace DekiFsm

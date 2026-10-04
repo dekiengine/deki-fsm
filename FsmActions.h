@@ -3,10 +3,10 @@
 #include <string>
 
 #include "deki-nodegraph/DekiNode.h"
-#include <deki/reflection/PropertyRef.h>   // PropertyRef (picked component field)
-#include <deki/assets/AssetRef.h>          // AssetRef<Scene> (Spawn Scene)
+#include <deki/reflection/PropertyRef.h>  // PropertyRef (picked component field)
+#include <deki/assets/AssetRef.h>         // AssetRef<Scene> (Spawn Scene)
 #include <deki/Scene.h>                   // Scene::AssetTypeName
-#include "deki-tween/Easing.h"        // DekiTween::EaseType (Tween Property easing)
+#include "deki-tween/Easing.h"            // DekiTween::EaseType (Tween Property easing)
 
 namespace DekiFsm
 {
@@ -176,7 +176,8 @@ struct FsmModifyPropertyAction
 {
     DEKI_NODE(FsmModifyPropertyAction, "FsmModifyProperty", "Fsm/Actions")
     static constexpr const char* StaticNodeDisplayName = "Modify Property";
-    static constexpr const char* StaticNodeDescription = "Do arithmetic on a number field or variable. The score and health workhorse.";
+    static constexpr const char* StaticNodeDescription =
+        "Do arithmetic on a number field or variable. The score and health workhorse.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:
@@ -262,7 +263,8 @@ struct FsmPlayAnimationAction
 {
     DEKI_NODE(FsmPlayAnimationAction, "FsmPlayAnimation", "Fsm/Actions")
     static constexpr const char* StaticNodeDisplayName = "Play Animation";
-    static constexpr const char* StaticNodeDescription = "Play an animation on the target, optionally waiting for it to finish.";
+    static constexpr const char* StaticNodeDescription =
+        "Play an animation on the target, optionally waiting for it to finish.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_OUTPUTS("done")
 public:

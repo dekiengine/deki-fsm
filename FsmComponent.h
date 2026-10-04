@@ -11,7 +11,10 @@
 #include <string>
 #include <vector>
 
-namespace Deki2D { class ButtonComponent; }
+namespace Deki2D
+{
+class ButtonComponent;
+}
 
 namespace DekiFsm
 {
@@ -201,9 +204,9 @@ private:
     // and popping `groups` to match. Returns nullptr after latching the machine
     // failed. `graph` is in/out: the graph `node` lives in on the way in, the
     // graph the returned State lives in on the way out.
-    const DekiNodeGraph::NodeGraphData::NodeInstance* ResolveFlowTarget(
-        const DekiNodeGraph::NodeGraphData::Graph*& graph, const DekiNodeGraph::NodeGraphData::NodeInstance* node,
-        Track& track);
+    const DekiNodeGraph::NodeGraphData::NodeInstance*
+    ResolveFlowTarget(const DekiNodeGraph::NodeGraphData::Graph*& graph,
+                      const DekiNodeGraph::NodeGraphData::NodeInstance* node, Track& track);
 
     // Make `target` (resolved through groups) this track's active state and
     // start its action flow at the Entry node's wire.
@@ -222,8 +225,8 @@ private:
     size_t m_MaxActionState = 0;
 
     std::vector<Track> m_Tracks;
-    bool m_Initialized = false;            // tracks/stacks built for m_LastGraph
-    FsmGraph* m_LastGraph = nullptr;       // detect asset reload/reassign
+    bool m_Initialized = false;       // tracks/stacks built for m_LastGraph
+    FsmGraph* m_LastGraph = nullptr;  // detect asset reload/reassign
     bool m_Failed = false;
     int m_TransitionsThisFrame = 0;
 
@@ -242,4 +245,3 @@ private:
 };
 
 }  // namespace DekiFsm
-

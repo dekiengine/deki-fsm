@@ -1,6 +1,6 @@
 #include "FsmGraph.h"
-#include "FsmNodes.h"     // pulls in the state node registrations (DekiNodeGraph::NodeFactory)
-#include "FsmActions.h"   // pulls in the action registrations (DekiNodeGraph::NodeFactory)
+#include "FsmNodes.h"    // pulls in the state node registrations (DekiNodeGraph::NodeFactory)
+#include "FsmActions.h"  // pulls in the action registrations (DekiNodeGraph::NodeFactory)
 
 #include <deki/assets/AssetManager.h>
 #include <deki/LogSystem.h>
@@ -20,22 +20,22 @@ namespace DekiFsm
 
 namespace
 {
-    FsmGraph* LoadGraphFromMemory(const uint8_t* data, size_t size)
+FsmGraph* LoadGraphFromMemory(const uint8_t* data, size_t size)
+{
+    DekiNodeGraph::NodeGraphData* graphData = DekiNodeGraph::NodeGraphData::LoadFromMemory(data, size);
+    if (!graphData)
     {
-        DekiNodeGraph::NodeGraphData* graphData = DekiNodeGraph::NodeGraphData::LoadFromMemory(data, size);
-        if (!graphData)
-        {
-            DEKI_LOG_ERROR("FsmGraph: failed to load state machine asset");
-            return nullptr;
-        }
-
-        auto* graph = new FsmGraph();
-        graph->data = graphData;
-        return graph;
+        DEKI_LOG_ERROR("FsmGraph: failed to load state machine asset");
+        return nullptr;
     }
 
-    bool s_GraphLoaderRegistered = false;
+    auto* graph = new FsmGraph();
+    graph->data = graphData;
+    return graph;
 }
+
+bool s_GraphLoaderRegistered = false;
+}  // namespace
 
 // Called, not a static registrar: a firmware links the game from an archive,
 // and the linker drops an object nothing references, registrar and all. That
@@ -43,7 +43,9 @@ namespace
 void RegisterGraphLoader()
 {
     if (s_GraphLoaderRegistered)
+    {
         return;
+    }
     s_GraphLoaderRegistered = true;
 
     // Through the engine's filesystem: the path is a virtual one on a
@@ -54,10 +56,12 @@ void RegisterGraphLoader()
         // is only held while it is parsed.
         Deki::Buffer<uint8_t> buf;
         if (!Deki::AssetManager::ReadWholeFile(p, buf, Deki::Memory::External))
+        {
             return nullptr;
+        }
         return LoadGraphFromMemory(buf.Data(), buf.Count());
     };
-    auto unloader  = [](void* a) { delete static_cast<FsmGraph*>(a); };
+    auto unloader = [](void* a) { delete static_cast<FsmGraph*>(a); };
     auto memLoader = [](const uint8_t* d, size_t n) -> void* { return LoadGraphFromMemory(d, n); };
 
     Deki::AssetManager::RegisterLoader("FsmGraph", pathLoader, unloader, memLoader);

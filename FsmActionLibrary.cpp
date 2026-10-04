@@ -25,11 +25,11 @@
 #include "deki-2d/ButtonComponent.h"
 #include "deki-tween/Easing.h"
 
-#include <deki/Component.h>   // DekiHashString
+#include <deki/Component.h>  // DekiHashString
 #include <deki/Object.h>
 #include <deki/LogSystem.h>
 #include <deki/Scene.h>                   // Instantiate / RemoveObject
-#include <deki/reflection/PropertyRef.h>   // BindPropertyRef / Write / Compare
+#include <deki/reflection/PropertyRef.h>  // BindPropertyRef / Write / Compare
 
 #include <cmath>
 #include <cstdio>
@@ -62,30 +62,33 @@ constexpr int kFalsePin = 1;
 struct BoundState
 {
     Deki::PropertyBinding binding;
-    uint8_t bound;     // 1 once the reference resolved (0 = the FSM latched)
-    uint8_t flag;      // Set Property: applied; Compare Property: fired
+    uint8_t bound;  // 1 once the reference resolved (0 = the FSM latched)
+    uint8_t flag;   // Set Property: applied; Compare Property: fired
 };
 
 // Resolve a reference to a live binding. A "Variable" reference is the
 // machine's own storage (the engine can't see it), anything else is a component
 // field or the object's transform.
-bool BindRef(FsmContext& ctx, const Deki::PropertyRef& ref, const char* actionName,
-             Deki::PropertyBinding& out)
+bool BindRef(FsmContext& ctx, const Deki::PropertyRef& ref, const char* actionName, Deki::PropertyBinding& out)
 {
     if (ref.component == Deki::kVariableRefComponent)
+    {
         return ctx.fsm && ctx.fsm->BindVariable(ref, out);
+    }
 
     Deki::Object* target = ctx.ResolveTarget(ref.object);
     if (!target)
-        return false;   // FSM already latched by ResolveTarget
+    {
+        return false;  // FSM already latched by ResolveTarget
+    }
 
     const char* why = nullptr;
     if (!BindPropertyRef(target, ref, out, &why))
     {
         char buf[224];
-        std::snprintf(buf, sizeof(buf), "%s: %s (object '%s', component '%s', field '%s')",
-                      actionName, why ? why : "unresolved reference",
-                      target->GetName().c_str(), ref.component.c_str(), ref.field.c_str());
+        std::snprintf(buf, sizeof(buf), "%s: %s (object '%s', component '%s', field '%s')", actionName,
+                      why ? why : "unresolved reference", target->GetName().c_str(), ref.component.c_str(),
+                      ref.field.c_str());
         ctx.Fail(buf);
         return false;
     }
@@ -94,17 +97,19 @@ bool BindRef(FsmContext& ctx, const Deki::PropertyRef& ref, const char* actionNa
 
 // Resolve `ref` and pre-parse `literal` into s->binding. Fails the FSM (once,
 // with the offending names) and leaves s->bound at 0 on any miss.
-void BindOrFail(FsmContext& ctx, const Deki::PropertyRef& ref, const std::string& literal,
-                const char* actionName, BoundState* s)
+void BindOrFail(FsmContext& ctx, const Deki::PropertyRef& ref, const std::string& literal, const char* actionName,
+                BoundState* s)
 {
     if (!BindRef(ctx, ref, actionName, s->binding))
+    {
         return;
+    }
 
     if (!ParsePropertyLiteral(*s->binding.info, literal.c_str(), s->binding.number))
     {
         char buf[224];
-        std::snprintf(buf, sizeof(buf), "%s: '%s' is not a valid value for field '%s'",
-                      actionName, literal.c_str(), ref.field.c_str());
+        std::snprintf(buf, sizeof(buf), "%s: '%s' is not a valid value for field '%s'", actionName, literal.c_str(),
+                      ref.field.c_str());
         ctx.Fail(buf);
         return;
     }
@@ -122,12 +127,13 @@ bool ReadNumberVariable(FsmContext& ctx, const std::string& name, const char* ac
     ref.Rehash();
     Deki::PropertyBinding b;
     if (!ctx.fsm || !ctx.fsm->BindVariable(ref, b))
-        return false;   // latched, naming the variable
+    {
+        return false;  // latched, naming the variable
+    }
     if (static_cast<Deki::PropertyType>(b.info->type) == Deki::PropertyType::String)
     {
         char buf[192];
-        std::snprintf(buf, sizeof(buf), "%s: variable '%s' is text, and this takes a number", actionName,
-                      name.c_str());
+        std::snprintf(buf, sizeof(buf), "%s: variable '%s' is text, and this takes a number", actionName, name.c_str());
         ctx.Fail(buf);
         return false;
     }
@@ -145,18 +151,22 @@ void BindOrFailFrom(FsmContext& ctx, const Deki::PropertyRef& ref, const std::st
         return;
     }
     if (!BindRef(ctx, ref, actionName, s->binding))
+    {
         return;
+    }
     const auto type = static_cast<Deki::PropertyType>(s->binding.info->type);
     if (type == Deki::PropertyType::String || type == Deki::PropertyType::Vector2)
     {
         char buf[224];
-        std::snprintf(buf, sizeof(buf), "%s: a variable gives one number, and field '%s' is not a number",
-                      actionName, ref.field.c_str());
+        std::snprintf(buf, sizeof(buf), "%s: a variable gives one number, and field '%s' is not a number", actionName,
+                      ref.field.c_str());
         ctx.Fail(buf);
         return;
     }
     if (!ReadNumberVariable(ctx, variable, actionName, s->binding.number))
+    {
         return;
+    }
     s->bound = 1;
 }
 
@@ -164,7 +174,11 @@ void BindOrFailFrom(FsmContext& ctx, const Deki::PropertyRef& ref, const std::st
 // Wait
 // ---------------------------------------------------------------------------
 
-struct WaitState { float elapsed; float seconds; };
+struct WaitState
+{
+    float elapsed;
+    float seconds;
+};
 
 void Wait_Enter(const void* data, void* state, FsmContext& ctx)
 {
@@ -175,7 +189,9 @@ void Wait_Enter(const void* data, void* state, FsmContext& ctx)
     {
         double seconds = 0.0;
         if (ReadNumberVariable(ctx, d->secondsVariable, "Wait", seconds))
+        {
             s->seconds = static_cast<float>(seconds);
+        }
     }
 }
 
@@ -193,14 +209,20 @@ const FsmActionOps kWaitOps = { sizeof(WaitState), &Wait_Enter, &Wait_Update, nu
 // Send Event
 // ---------------------------------------------------------------------------
 
-struct SendEventState { float elapsed; uint8_t sent; };
+struct SendEventState
+{
+    float elapsed;
+    uint8_t sent;
+};
 
 int SendEvent_Update(const void* data, void* state, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmSendEventAction*>(data);
     auto* s = static_cast<SendEventState*>(state);
     if (s->sent)
+    {
         return kDone;
+    }
     if (d->eventName.empty())
     {
         ctx.Fail("Send Event action has an empty event name");
@@ -233,16 +255,22 @@ int SetProperty_Update(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmSetPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
     if (!s->bound)
-        return kDone;   // FSM latched in onEnter
+    {
+        return kDone;  // FSM latched in onEnter
+    }
 
     // Everything expensive already happened at bind time: this is a store.
     // A value read from a variable is a number, not text to parse.
     if (d->valueVariable.empty())
+    {
         WriteBoundProperty(s->binding, d->value);
+    }
     else
+    {
         WriteBoundNumbers(s->binding, s->binding.number, s->binding.number2);
+    }
     s->flag = 1;
-    return d->everyFrame ? kFsmActionRunning : kDone;   // everyFrame parks the flow
+    return d->everyFrame ? kFsmActionRunning : kDone;  // everyFrame parks the flow
 }
 
 const FsmActionOps kSetPropertyOps = { sizeof(BoundState), &SetProperty_Enter, &SetProperty_Update, nullptr };
@@ -257,7 +285,9 @@ void Compare_Enter(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<BoundState*>(state);
     BindOrFail(ctx, d->target, d->value, "Compare Property", s);
     if (!s->bound)
+    {
         return;
+    }
 
     // Ordering a string has no meaning here; catch it at bind time rather than
     // silently comparing something surprising every frame.
@@ -274,22 +304,26 @@ int Compare_Update(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmComparePropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
     if (!s->bound)
-        return kDone;   // FSM latched in onEnter
+    {
+        return kDone;  // FSM latched in onEnter
+    }
 
     const int cmp = CompareBoundProperty(s->binding, d->value);
     bool holds = false;
     switch (d->compare)
     {
-        case FsmCompareOp::Equals:    holds = cmp == 0; break;
+        case FsmCompareOp::Equals: holds = cmp == 0; break;
         case FsmCompareOp::NotEquals: holds = cmp != 0; break;
-        case FsmCompareOp::Less:      holds = cmp < 0;  break;
-        case FsmCompareOp::Greater:   holds = cmp > 0;  break;
+        case FsmCompareOp::Less: holds = cmp < 0; break;
+        case FsmCompareOp::Greater: holds = cmp > 0; break;
     }
 
     // Gate: park here (re-testing every frame) until the comparison holds, then
     // leave down "true". There is no false outcome in this mode by definition.
     if (d->waitUntilTrue)
+    {
         return holds ? kTruePin : kFsmActionRunning;
+    }
 
     // Branch: decide now and leave down the matching pin. No event names, no
     // edge tracking — the outcome IS the wire that gets followed.
@@ -320,11 +354,12 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<TweenState*>(state);
 
     if (!BindRef(ctx, d->target, "Tween Property", s->binding))
-        return;   // FSM latched
+    {
+        return;  // FSM latched
+    }
 
     const auto type = static_cast<Deki::PropertyType>(s->binding.info->type);
-    if (type != Deki::PropertyType::Float && type != Deki::PropertyType::Double &&
-        type != Deki::PropertyType::Vector2)
+    if (type != Deki::PropertyType::Float && type != Deki::PropertyType::Double && type != Deki::PropertyType::Vector2)
     {
         ctx.Fail("Tween Property: only float and Vector2 fields can be tweened");
         return;
@@ -338,14 +373,15 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
             return;
         }
         if (!ReadNumberVariable(ctx, d->toVariable, "Tween Property", s->binding.number))
+        {
             return;
+        }
     }
-    else if (!ParsePropertyLiteral(*s->binding.info, d->to.c_str(),
-                                   s->binding.number, s->binding.number2))
+    else if (!ParsePropertyLiteral(*s->binding.info, d->to.c_str(), s->binding.number, s->binding.number2))
     {
         char buf[224];
-        std::snprintf(buf, sizeof(buf), "Tween Property: '%s' is not a valid value for field '%s'",
-                      d->to.c_str(), d->target.field.c_str());
+        std::snprintf(buf, sizeof(buf), "Tween Property: '%s' is not a valid value for field '%s'", d->to.c_str(),
+                      d->target.field.c_str());
         ctx.Fail(buf);
         return;
     }
@@ -355,7 +391,9 @@ void Tween_Enter(const void* data, void* state, FsmContext& ctx)
     {
         double duration = 0.0;
         if (!ReadNumberVariable(ctx, d->durationVariable, "Tween Property", duration))
+        {
             return;
+        }
         s->duration = static_cast<float>(duration);
     }
 
@@ -369,19 +407,22 @@ int Tween_Update(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmTweenPropertyAction*>(data);
     auto* s = static_cast<TweenState*>(state);
     if (!s->bound)
-        return kDone;   // FSM latched in onEnter
+    {
+        return kDone;  // FSM latched in onEnter
+    }
 
-    const double end  = d->relative ? s->start  + s->binding.number  : s->binding.number;
+    const double end = d->relative ? s->start + s->binding.number : s->binding.number;
     const double end2 = d->relative ? s->start2 + s->binding.number2 : s->binding.number2;
 
     s->elapsed += ctx.dt;
     float u = s->duration > 0.0f ? s->elapsed / s->duration : 1.0f;
-    if (u > 1.0f) u = 1.0f;
+    if (u > 1.0f)
+    {
+        u = 1.0f;
+    }
     const float e = DekiTween::Ease::GetFunction(d->ease)(u);
 
-    WriteBoundNumbers(s->binding,
-                      s->start  + (end  - s->start)  * e,
-                      s->start2 + (end2 - s->start2) * e);
+    WriteBoundNumbers(s->binding, s->start + (end - s->start) * e, s->start2 + (end2 - s->start2) * e);
     return u >= 1.0f ? kDone : kFsmActionRunning;
 }
 
@@ -397,7 +438,9 @@ void Modify_Enter(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<BoundState*>(state);
     BindOrFailFrom(ctx, d->target, d->operand, d->operandVariable, "Modify Property", s);
     if (!s->bound)
+    {
         return;
+    }
 
     if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::String)
     {
@@ -411,14 +454,16 @@ int Modify_Update(const void* data, void* state, FsmContext& ctx)
     const auto* d = static_cast<const FsmModifyPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
     if (!s->bound)
-        return kDone;   // FSM latched in onEnter
+    {
+        return kDone;  // FSM latched in onEnter
+    }
 
     const double cur = ReadBoundProperty(s->binding);
     const double rhs = s->binding.number;
     double next = cur;
     switch (d->operation)
     {
-        case FsmMathOp::Add:      next = cur + rhs; break;
+        case FsmMathOp::Add: next = cur + rhs; break;
         case FsmMathOp::Subtract: next = cur - rhs; break;
         case FsmMathOp::Multiply: next = cur * rhs; break;
         case FsmMathOp::Divide:
@@ -429,8 +474,8 @@ int Modify_Update(const void* data, void* state, FsmContext& ctx)
             }
             next = cur / rhs;
             break;
-        case FsmMathOp::Min:      next = cur < rhs ? cur : rhs; break;
-        case FsmMathOp::Max:      next = cur > rhs ? cur : rhs; break;
+        case FsmMathOp::Min: next = cur < rhs ? cur : rhs; break;
+        case FsmMathOp::Max: next = cur > rhs ? cur : rhs; break;
     }
 
     // Vector2 targets apply the same operation to both axes.
@@ -441,7 +486,7 @@ int Modify_Update(const void* data, void* state, FsmContext& ctx)
         const double rhs2 = s->binding.number2;
         switch (d->operation)
         {
-            case FsmMathOp::Add:      next2 = cur2 + rhs2; break;
+            case FsmMathOp::Add: next2 = cur2 + rhs2; break;
             case FsmMathOp::Subtract: next2 = cur2 - rhs2; break;
             case FsmMathOp::Multiply: next2 = cur2 * rhs2; break;
             case FsmMathOp::Divide:
@@ -452,8 +497,8 @@ int Modify_Update(const void* data, void* state, FsmContext& ctx)
                 }
                 next2 = cur2 / rhs2;
                 break;
-            case FsmMathOp::Min:      next2 = cur2 < rhs2 ? cur2 : rhs2; break;
-            case FsmMathOp::Max:      next2 = cur2 > rhs2 ? cur2 : rhs2; break;
+            case FsmMathOp::Min: next2 = cur2 < rhs2 ? cur2 : rhs2; break;
+            case FsmMathOp::Max: next2 = cur2 > rhs2 ? cur2 : rhs2; break;
         }
     }
 
@@ -473,7 +518,9 @@ void Random_Enter(const void* data, void* state, FsmContext& ctx)
     auto* s = static_cast<BoundState*>(state);
     // No literal to parse: the value comes from the range, not from text.
     if (!BindRef(ctx, d->target, "Random Property", s->binding))
-        return;   // FSM latched
+    {
+        return;  // FSM latched
+    }
 
     if (static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::String)
     {
@@ -488,9 +535,12 @@ int Random_Update(const void* data, void* state, FsmContext& /*ctx*/)
     const auto* d = static_cast<const FsmRandomPropertyAction*>(data);
     auto* s = static_cast<BoundState*>(state);
     if (!s->bound)
+    {
         return kDone;
+    }
 
-    auto roll = [&]() {
+    auto roll = [&]()
+    {
         const double u = static_cast<double>(std::rand()) / (static_cast<double>(RAND_MAX) + 1.0);
         double v = d->min + u * (static_cast<double>(d->max) - static_cast<double>(d->min));
         if (d->wholeNumbers)
@@ -500,13 +550,15 @@ int Random_Update(const void* data, void* state, FsmContext& /*ctx*/)
             const double lo = d->min < d->max ? d->min : d->max;
             const double hi = d->min < d->max ? d->max : d->min;
             v = lo + std::floor(u * (hi - lo + 1.0));
-            if (v > hi) v = hi;
+            if (v > hi)
+            {
+                v = hi;
+            }
         }
         return v;
     };
 
-    const bool isVec2 =
-        static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::Vector2;
+    const bool isVec2 = static_cast<Deki::PropertyType>(s->binding.info->type) == Deki::PropertyType::Vector2;
     WriteBoundNumbers(s->binding, roll(), isVec2 ? roll() : 0.0);
     return kDone;
 }
@@ -551,7 +603,9 @@ int Spawn_Update(const void* data, void* /*state*/, FsmContext& ctx)
         return kDone;
     }
     if (!d->spawnedName.empty())
+    {
         spawned->SetName(d->spawnedName);
+    }
     return kDone;
 }
 
@@ -567,7 +621,9 @@ int Destroy_Update(const void* data, void* /*state*/, FsmContext& ctx)
 
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
-        return kDone;   // FSM latched
+    {
+        return kDone;  // FSM latched
+    }
 
     Deki::Scene* owner = target->GetOwnerScene();
     if (!owner)
@@ -591,7 +647,9 @@ int SetParent_Update(const void* data, void* /*state*/, FsmContext& ctx)
 
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
-        return kDone;   // FSM latched
+    {
+        return kDone;  // FSM latched
+    }
 
     // An empty new parent means the scene root, so it is resolved separately
     // from ResolveTarget (where empty means "the FSM's own object").
@@ -600,7 +658,9 @@ int SetParent_Update(const void* data, void* /*state*/, FsmContext& ctx)
     {
         parent = ctx.ResolveTarget(d->newParent);
         if (!parent)
-            return kDone;   // FSM latched
+        {
+            return kDone;  // FSM latched
+        }
     }
     target->SetParent(parent);
     return kDone;
@@ -612,7 +672,10 @@ const FsmActionOps kSetParentOps = { 0, nullptr, &SetParent_Update, nullptr };
 // Play Animation
 // ---------------------------------------------------------------------------
 
-struct PlayAnimState { Deki2D::AnimationComponent* anim; };
+struct PlayAnimState
+{
+    Deki2D::AnimationComponent* anim;
+};
 
 void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
 {
@@ -621,7 +684,9 @@ void PlayAnim_Enter(const void* data, void* state, FsmContext& ctx)
 
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
-        return;   // FSM latched
+    {
+        return;  // FSM latched
+    }
 
     Deki2D::AnimationComponent* anim = target->GetComponent<Deki2D::AnimationComponent>();
     if (!anim)
@@ -645,9 +710,13 @@ int PlayAnim_Update(const void* data, void* state, FsmContext& /*ctx*/)
     const auto* d = static_cast<const FsmPlayAnimationAction*>(data);
     auto* s = static_cast<PlayAnimState*>(state);
     if (!s->anim)
-        return kDone;   // FSM latched in onEnter
+    {
+        return kDone;  // FSM latched in onEnter
+    }
     if (!d->waitForFinish)
-        return kDone;   // fire and forget: the animation keeps running
+    {
+        return kDone;  // fire and forget: the animation keeps running
+    }
     return (s->anim->hasFinished || !s->anim->isPlaying) ? kDone : kFsmActionRunning;
 }
 
@@ -669,14 +738,15 @@ int SendEventTo_Update(const void* data, void* /*state*/, FsmContext& ctx)
 
     Deki::Object* target = ctx.ResolveTarget(d->targetObject);
     if (!target)
-        return kDone;   // FSM latched
+    {
+        return kDone;  // FSM latched
+    }
 
     FsmComponent* fsm = target->GetComponent<FsmComponent>();
     if (!fsm)
     {
         char buf[192];
-        std::snprintf(buf, sizeof(buf), "Send Event To: object '%s' has no FsmComponent",
-                      target->GetName().c_str());
+        std::snprintf(buf, sizeof(buf), "Send Event To: object '%s' has no FsmComponent", target->GetName().c_str());
         ctx.Fail(buf);
         return kDone;
     }
@@ -693,8 +763,7 @@ const FsmActionOps kSendEventToOps = { 0, nullptr, &SendEventTo_Update, nullptr 
 int Log_Update(const void* data, void* /*state*/, FsmContext& ctx)
 {
     const auto* d = static_cast<const FsmLogAction*>(data);
-    DEKI_LOG_INFO("FSM (%s): %s",
-                  ctx.owner ? ctx.owner->GetName().c_str() : "?", d->message.c_str());
+    DEKI_LOG_INFO("FSM (%s): %s", ctx.owner ? ctx.owner->GetName().c_str() : "?", d->message.c_str());
     return kDone;
 }
 
@@ -707,7 +776,10 @@ const FsmActionOps kLogOps = { 0, nullptr, &Log_Update, nullptr };
 // The clicked flag is owned by the FsmComponent's watch map for the component's
 // whole life (never erased), so caching the raw pointer here is safe and turns
 // the per-frame path into a single bool read.
-struct WatchButtonState { bool* clicked; };
+struct WatchButtonState
+{
+    bool* clicked;
+};
 
 void WatchButton_Enter(const void* data, void* state, FsmContext& ctx)
 {
@@ -716,7 +788,9 @@ void WatchButton_Enter(const void* data, void* state, FsmContext& ctx)
 
     Deki::Object* target = ctx.ResolveTarget(d->buttonObject);
     if (!target)
-        return;   // FSM latched
+    {
+        return;  // FSM latched
+    }
 
     Deki2D::ButtonComponent* button = target->GetComponent<Deki2D::ButtonComponent>();
     if (!button)
@@ -737,20 +811,21 @@ int WatchButton_Update(const void* /*data*/, void* state, FsmContext& /*ctx*/)
 {
     auto* s = static_cast<WatchButtonState*>(state);
     if (!s->clicked)
-        return kDone;   // FSM latched in onEnter
+    {
+        return kDone;  // FSM latched in onEnter
+    }
 
     if (*s->clicked)
     {
         *s->clicked = false;
-        return kDone;   // leave down "clicked"
+        return kDone;  // leave down "clicked"
     }
-    return kFsmActionRunning;   // keeps watching while the state is active
+    return kFsmActionRunning;  // keeps watching while the state is active
 }
 
-const FsmActionOps kWatchButtonOps = { sizeof(WatchButtonState), &WatchButton_Enter,
-                                      &WatchButton_Update, nullptr };
+const FsmActionOps kWatchButtonOps = { sizeof(WatchButtonState), &WatchButton_Enter, &WatchButton_Update, nullptr };
 
-} // namespace
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // Registration (typeId = hash of the node name, as stored by the graph loader)

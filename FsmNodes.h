@@ -38,7 +38,8 @@ struct FsmStartNode
 {
     DEKI_NODE(FsmStartNode, "FsmStart", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "Start";
-    static constexpr const char* StaticNodeDescription = "Main flow entry, like Start(). Wire it to the machine's first state.";
+    static constexpr const char* StaticNodeDescription =
+        "Main flow entry, like Start(). Wire it to the machine's first state.";
     DEKI_NODE_OUTPUTS("start")
     DEKI_NODE_PERMANENT()
 };
@@ -51,7 +52,8 @@ struct FsmAwakeNode
 {
     DEKI_NODE(FsmAwakeNode, "FsmAwake", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "Awake";
-    static constexpr const char* StaticNodeDescription = "Setup flow entry, like Awake(). Its track runs before Start and Update.";
+    static constexpr const char* StaticNodeDescription =
+        "Setup flow entry, like Awake(). Its track runs before Start and Update.";
     DEKI_NODE_OUTPUTS("start")
     DEKI_NODE_PERMANENT()
 };
@@ -65,7 +67,8 @@ struct FsmUpdateNode
 {
     DEKI_NODE(FsmUpdateNode, "FsmUpdate", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "Update";
-    static constexpr const char* StaticNodeDescription = "Per-frame flow entry, like Update(). Where watcher states live.";
+    static constexpr const char* StaticNodeDescription =
+        "Per-frame flow entry, like Update(). Where watcher states live.";
     DEKI_NODE_OUTPUTS("start")
     DEKI_NODE_PERMANENT()
 };
@@ -79,7 +82,8 @@ struct FsmStateNode
 {
     DEKI_NODE(FsmStateNode, "FsmState", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "State";
-    static constexpr const char* StaticNodeDescription = "One state. Holds its actions inside, and one output per transition event.";
+    static constexpr const char* StaticNodeDescription =
+        "One state. Holds its actions inside, and one output per transition event.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_DYNAMIC_OUTPUTS("transitions")
     DEKI_NODE_SUBGRAPH("Fsm/Actions", "FsmActionEntry")
@@ -125,7 +129,8 @@ struct FsmGroupNode
 {
     DEKI_NODE(FsmGroupNode, "FsmGroup", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "Group";
-    static constexpr const char* StaticNodeDescription = "A box holding a sub-flow of states. Tidies the canvas, changes nothing at runtime.";
+    static constexpr const char* StaticNodeDescription =
+        "A box holding a sub-flow of states. Tidies the canvas, changes nothing at runtime.";
     DEKI_NODE_INPUTS("in")
     DEKI_NODE_DYNAMIC_OUTPUTS("exits")
     DEKI_NODE_SUBGRAPH("Fsm/Flow", "FsmGroupIn")
@@ -145,7 +150,8 @@ struct FsmGroupInNode
 {
     DEKI_NODE(FsmGroupInNode, "FsmGroupIn", "Fsm/Flow")
     static constexpr const char* StaticNodeDisplayName = "Group In";
-    static constexpr const char* StaticNodeDescription = "The inside of a group's input: wire it to the group's first state.";
+    static constexpr const char* StaticNodeDescription =
+        "The inside of a group's input: wire it to the group's first state.";
     DEKI_NODE_OUTPUTS("in")
     DEKI_NODE_PERMANENT()
 };

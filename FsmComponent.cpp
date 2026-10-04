@@ -18,70 +18,76 @@ namespace DekiFsm
 
 namespace
 {
-    constexpr uint32_t kStartId  = Deki::HashString("FsmStart");
-    constexpr uint32_t kStateId  = Deki::HashString("FsmState");
-    constexpr uint32_t kAwakeId  = Deki::HashString("FsmAwake");
-    constexpr uint32_t kUpdateId = Deki::HashString("FsmUpdate");
+constexpr uint32_t kStartId = Deki::HashString("FsmStart");
+constexpr uint32_t kStateId = Deki::HashString("FsmState");
+constexpr uint32_t kAwakeId = Deki::HashString("FsmAwake");
+constexpr uint32_t kUpdateId = Deki::HashString("FsmUpdate");
 
-    // A state's action flow starts at this node; groups are entered and left
-    // through theirs. All three are pure wiring: they carry no behavior and are
-    // never handed to the action registry.
-    constexpr uint32_t kActionEntryId = Deki::HashString("FsmActionEntry");
-    constexpr uint32_t kGroupId       = Deki::HashString("FsmGroup");
-    constexpr uint32_t kGroupInId     = Deki::HashString("FsmGroupIn");
-    constexpr uint32_t kGroupExitId   = Deki::HashString("FsmGroupExit");
+// A state's action flow starts at this node; groups are entered and left
+// through theirs. All three are pure wiring: they carry no behavior and are
+// never handed to the action registry.
+constexpr uint32_t kActionEntryId = Deki::HashString("FsmActionEntry");
+constexpr uint32_t kGroupId = Deki::HashString("FsmGroup");
+constexpr uint32_t kGroupInId = Deki::HashString("FsmGroupIn");
+constexpr uint32_t kGroupExitId = Deki::HashString("FsmGroupExit");
 
-    // Variables. The runtime matches these by type id and casts to the concrete
-    // struct: DekiNodeGraph::DekiNodeMeta / DekiNodeGraph::NodeTypeRegistry are editor-only, so nothing here
-    // may go through reflection (the DEKI_NODE_VARIABLES marker exists for the
-    // editor's pickers, not for this path).
-    constexpr uint32_t kVariablesId = Deki::HashString("FsmVariables");
-    constexpr uint32_t kNumberVarId = Deki::HashString("FsmNumberVar");
-    constexpr uint32_t kBoolVarId   = Deki::HashString("FsmBoolVar");
-    constexpr uint32_t kTextVarId   = Deki::HashString("FsmTextVar");
+// Variables. The runtime matches these by type id and casts to the concrete
+// struct: DekiNodeGraph::DekiNodeMeta / DekiNodeGraph::NodeTypeRegistry are editor-only, so nothing here
+// may go through reflection (the DEKI_NODE_VARIABLES marker exists for the
+// editor's pickers, not for this path).
+constexpr uint32_t kVariablesId = Deki::HashString("FsmVariables");
+constexpr uint32_t kNumberVarId = Deki::HashString("FsmNumberVar");
+constexpr uint32_t kBoolVarId = Deki::HashString("FsmBoolVar");
+constexpr uint32_t kTextVarId = Deki::HashString("FsmTextVar");
 
-    // Event-transition storm guard (machine-wide): a graph whose states hand
-    // an event around in a cycle would otherwise spin forever within a frame.
-    constexpr int kMaxTransitionsPerFrame = 16;
+// Event-transition storm guard (machine-wide): a graph whose states hand
+// an event around in a cycle would otherwise spin forever within a frame.
+constexpr int kMaxTransitionsPerFrame = 16;
 
-    // Same idea one level down: an action flow may legally loop, so a ring of
-    // instant actions would otherwise never yield the frame.
-    constexpr int kMaxActionStepsPerFrame = 256;
+// Same idea one level down: an action flow may legally loop, so a ring of
+// instant actions would otherwise never yield the frame.
+constexpr int kMaxActionStepsPerFrame = 256;
 
-    // Groups and exits are resolved by walking, and a group whose In leads to
-    // another group leads to another... this bounds that walk.
-    constexpr int kMaxFlowHops = 32;
+// Groups and exits are resolved by walking, and a group whose In leads to
+// another group leads to another... this bounds that walk.
+constexpr int kMaxFlowHops = 32;
 
-    const char* kFinishedEvent = "FINISHED";
+const char* kFinishedEvent = "FINISHED";
 
-    const std::string kEmptyName;
+const std::string kEmptyName;
 
-    // Largest per-run state any action in this graph asks for, inner graphs
-    // included (a state's action flow, a group's contents, to any depth).
-    //
-    // Measured once so every track can hold ONE slot that fits whatever it ends
-    // up running. The alternative the interpreter used to carry - a slice per
-    // action of the state being entered, plus an offset table - sized itself to
-    // the SUM of a flow's actions when only one of them is ever live, and
-    // reallocated both vectors on every single state change.
-    size_t MaxActionState(const DekiNodeGraph::NodeGraphData::Graph& graph)
+// Largest per-run state any action in this graph asks for, inner graphs
+// included (a state's action flow, a group's contents, to any depth).
+//
+// Measured once so every track can hold ONE slot that fits whatever it ends
+// up running. The alternative the interpreter used to carry - a slice per
+// action of the state being entered, plus an offset table - sized itself to
+// the SUM of a flow's actions when only one of them is ever live, and
+// reallocated both vectors on every single state change.
+size_t MaxActionState(const DekiNodeGraph::NodeGraphData::Graph& graph)
+{
+    size_t maxSize = 0;
+    for (const auto& node : graph.nodes)
     {
-        size_t maxSize = 0;
-        for (const auto& node : graph.nodes)
+        if (const FsmActionOps* ops = FsmActionRegistry::Instance().Find(node.typeId))
         {
-            if (const FsmActionOps* ops = FsmActionRegistry::Instance().Find(node.typeId))
-                if (ops->stateSize > maxSize)
-                    maxSize = ops->stateSize;
-            if (node.inner)
+            if (ops->stateSize > maxSize)
             {
-                const size_t inner = MaxActionState(*node.inner);
-                if (inner > maxSize)
-                    maxSize = inner;
+                maxSize = ops->stateSize;
             }
         }
-        return maxSize;
+        if (node.inner)
+        {
+            const size_t inner = MaxActionState(*node.inner);
+            if (inner > maxSize)
+            {
+                maxSize = inner;
+            }
+        }
     }
+    return maxSize;
 }
+}  // namespace
 
 // ============================================================================
 // FsmContext helpers (declared in FsmActionRegistry.h)
@@ -89,7 +95,10 @@ namespace
 
 void FsmContext::SendEvent(const std::string& name)
 {
-    if (fsm) fsm->SendEvent(name);
+    if (fsm)
+    {
+        fsm->SendEvent(name);
+    }
 }
 
 Deki::Object* FsmContext::ResolveTarget(const std::string& name)
@@ -99,7 +108,10 @@ Deki::Object* FsmContext::ResolveTarget(const std::string& name)
 
 void FsmContext::Fail(const char* message)
 {
-    if (fsm) fsm->FailFsm(message);
+    if (fsm)
+    {
+        fsm->FailFsm(message);
+    }
 }
 
 // ============================================================================
@@ -114,7 +126,9 @@ void FsmComponent::Update()
 {
     FsmGraph* g = graph.Get();
     if (!g || !g->data)
-        return;   // no graph assigned -> nothing to run (not an error)
+    {
+        return;  // no graph assigned -> nothing to run (not an error)
+    }
 
     // Asset reloaded or reassigned: drop the latched failure + machine state.
     if (g != m_LastGraph)
@@ -123,7 +137,9 @@ void FsmComponent::Update()
         ResetMachine();
     }
     if (m_Failed)
+    {
         return;
+    }
 
     m_TransitionsThisFrame = 0;
 
@@ -131,18 +147,24 @@ void FsmComponent::Update()
     {
         InitializeMachine(*g->data);
         if (m_Failed)
+        {
             return;
+        }
     }
 
     // Events queued between frames (external SendEvent callers, click
     // callbacks, events raised during initialization by Awake actions).
     ProcessEvents();
     if (m_Failed)
+    {
         return;
+    }
 
     RunActions();
     if (m_Failed)
+    {
         return;
+    }
 
     // Events raised by this frame's actions (including per-track FINISHED).
     ProcessEvents();
@@ -165,16 +187,19 @@ void FsmComponent::SendEvent(const std::string& name)
 const std::string& FsmComponent::ActiveStateName() const
 {
     if (!m_Tracks.empty() && m_Tracks[0].active && m_Tracks[0].active->typeId == kStateId)
+    {
         return static_cast<const FsmStateNode*>(m_Tracks[0].active->instance)->name;
+    }
     return kEmptyName;
 }
 
 void FsmComponent::FailFsm(const char* message)
 {
     if (m_Failed)
-        return;   // one error per latch
-    DEKI_LOG_ERROR("FsmComponent (%s): %s — machine stopped",
-                   GetOwner() ? GetOwner()->GetName().c_str() : "?",
+    {
+        return;  // one error per latch
+    }
+    DEKI_LOG_ERROR("FsmComponent (%s): %s — machine stopped", GetOwner() ? GetOwner()->GetName().c_str() : "?",
                    message ? message : "unknown error");
     m_Failed = true;
 }
@@ -183,14 +208,18 @@ Deki::Object* FsmComponent::ResolveTargetObject(const std::string& name)
 {
     Deki::Object* owner = GetOwner();
     if (name.empty())
+    {
         return owner;
+    }
 
     // Anywhere in the scene tree. This walked only the root list, which in a
     // single-root scene holds nothing but Root.
     if (owner && owner->GetOwnerScene())
     {
         if (Deki::Object* found = owner->GetOwnerScene()->FindDekiObject(name))
+        {
             return found;
+        }
     }
 
     char buf[192];
@@ -204,13 +233,19 @@ std::shared_ptr<bool> FsmComponent::EnsureClickWatch(const void* key, Deki2D::Bu
     // Linear: a machine watches one or two buttons, and the search is shorter
     // than hashing the key would be.
     for (const ClickWatch& watch : m_ClickWatches)
+    {
         if (watch.key == key)
+        {
             return watch.flag;
+        }
+    }
 
     auto flag = std::make_shared<bool>(false);
     m_ClickWatches.push_back({ key, flag });
     if (button)
+    {
         button->AddOnClickCallback([flag]() { *flag = true; });
+    }
     return flag;
 }
 
@@ -228,9 +263,9 @@ void FsmComponent::ResetMachine()
     m_Failed = false;
     m_EventQueue.clear();
     m_EventHead = 0;
-    m_MaxActionState = 0;     // re-measured from the new graph on the next init
-    m_ClickWatches.clear();   // callbacks on buttons keep their (now orphan) flags alive
-    m_Variables.clear();      // re-declared from the new graph on the next init
+    m_MaxActionState = 0;    // re-measured from the new graph on the next init
+    m_ClickWatches.clear();  // callbacks on buttons keep their (now orphan) flags alive
+    m_Variables.clear();     // re-declared from the new graph on the next init
 }
 
 void FsmComponent::InitializeVariables(const DekiNodeGraph::NodeGraphData& g)
@@ -243,13 +278,17 @@ void FsmComponent::InitializeVariables(const DekiNodeGraph::NodeGraphData& g)
     for (const auto& node : g.Nodes())
     {
         if (node.typeId != kVariablesId)
+        {
             continue;
+        }
 
         m_Variables.reserve(m_Variables.size() + node.children.size());
         for (const auto& child : node.children)
         {
             if (!child.enabled || !child.instance)
+            {
                 continue;
+            }
 
             Variable var;
             if (child.typeId == kNumberVarId)
@@ -313,8 +352,12 @@ void FsmComponent::ApplyVariableOverrides()
 
         Variable* var = nullptr;
         for (Variable& v : m_Variables)
+        {
             if (v.nameHash == hash)
+            {
                 var = &v;
+            }
+        }
         if (!var)
         {
             char buf[192];
@@ -357,7 +400,9 @@ bool FsmComponent::BindVariable(const Deki::PropertyRef& ref, Deki::PropertyBind
     for (Variable& var : m_Variables)
     {
         if (var.nameHash != ref.fieldHash)
+        {
             continue;
+        }
 
         const Deki::FieldRef* info = DekiVariableFieldRef(var.type);
         if (!info)
@@ -368,24 +413,21 @@ bool FsmComponent::BindVariable(const Deki::PropertyRef& ref, Deki::PropertyBind
         // Bools and ints are stored in the float slot, so the binding describes
         // the STORAGE type (Float) rather than the declared one; comparisons and
         // arithmetic behave the same either way.
-        out.info = (var.type == Deki::PropertyType::String)
-                       ? info
-                       : DekiVariableFieldRef(Deki::PropertyType::Float);
-        out.field = (var.type == Deki::PropertyType::String)
-                        ? static_cast<void*>(&var.text)
-                        : static_cast<void*>(&var.number);
+        out.info = (var.type == Deki::PropertyType::String) ? info : DekiVariableFieldRef(Deki::PropertyType::Float);
+        out.field =
+            (var.type == Deki::PropertyType::String) ? static_cast<void*>(&var.text) : static_cast<void*>(&var.number);
         return true;
     }
 
     char buf[192];
-    std::snprintf(buf, sizeof(buf), "no variable named '%s' is declared in this graph",
-                  ref.field.c_str());
+    std::snprintf(buf, sizeof(buf), "no variable named '%s' is declared in this graph", ref.field.c_str());
     FailFsm(buf);
     return false;
 }
 
-const DekiNodeGraph::NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarget(
-    const DekiNodeGraph::NodeGraphData::Graph*& graph, const DekiNodeGraph::NodeGraphData::NodeInstance* node, Track& track)
+const DekiNodeGraph::NodeGraphData::NodeInstance*
+FsmComponent::ResolveFlowTarget(const DekiNodeGraph::NodeGraphData::Graph*& graph,
+                                const DekiNodeGraph::NodeGraphData::NodeInstance* node, Track& track)
 {
     for (int hop = 0; hop < kMaxFlowHops; ++hop)
     {
@@ -396,7 +438,9 @@ const DekiNodeGraph::NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarge
         }
 
         if (node->typeId == kStateId)
-            return node;   // `graph` already holds the state's graph
+        {
+            return node;  // `graph` already holds the state's graph
+        }
 
         if (node->typeId == kGroupId)
         {
@@ -417,8 +461,7 @@ const DekiNodeGraph::NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarge
             {
                 const auto* d = static_cast<const FsmGroupNode*>(node->instance);
                 char buf[192];
-                std::snprintf(buf, sizeof(buf), "group '%s' has nothing wired to its Group In",
-                              d->name.c_str());
+                std::snprintf(buf, sizeof(buf), "group '%s' has nothing wired to its Group In", d->name.c_str());
                 FailFsm(buf);
                 return nullptr;
             }
@@ -436,8 +479,7 @@ const DekiNodeGraph::NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarge
             if (track.groups.empty())
             {
                 char buf[192];
-                std::snprintf(buf, sizeof(buf),
-                              "Group Exit '%s' is not inside a group (nothing to leave)",
+                std::snprintf(buf, sizeof(buf), "Group Exit '%s' is not inside a group (nothing to leave)",
                               exitData->name.c_str());
                 FailFsm(buf);
                 return nullptr;
@@ -458,8 +500,8 @@ const DekiNodeGraph::NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarge
             if (pin < 0)
             {
                 char buf[192];
-                std::snprintf(buf, sizeof(buf), "group '%s' has no exit named '%s'",
-                              groupData->name.c_str(), exitData->name.c_str());
+                std::snprintf(buf, sizeof(buf), "group '%s' has no exit named '%s'", groupData->name.c_str(),
+                              exitData->name.c_str());
                 FailFsm(buf);
                 return nullptr;
             }
@@ -467,8 +509,8 @@ const DekiNodeGraph::NodeGraphData::NodeInstance* FsmComponent::ResolveFlowTarge
             if (!next)
             {
                 char buf[192];
-                std::snprintf(buf, sizeof(buf), "group '%s' exit '%s' is not wired",
-                              groupData->name.c_str(), exitData->name.c_str());
+                std::snprintf(buf, sizeof(buf), "group '%s' exit '%s' is not wired", groupData->name.c_str(),
+                              exitData->name.c_str());
                 FailFsm(buf);
                 return nullptr;
             }
@@ -499,7 +541,9 @@ void FsmComponent::InitializeMachine(const DekiNodeGraph::NodeGraphData& g)
     // frame, and their storage must never move afterwards.
     InitializeVariables(g);
     if (m_Failed)
+    {
         return;
+    }
 
     // Then the size every track's action-state slot needs, before any track
     // exists: EnterState runs an action the moment a track is created.
@@ -511,21 +555,29 @@ void FsmComponent::InitializeMachine(const DekiNodeGraph::NodeGraphData& g)
         for (const auto& node : g.Nodes())
         {
             if (node.typeId != entryTypeId)
+            {
                 continue;
+            }
             const DekiNodeGraph::NodeGraphData::NodeInstance* first = g.Root().Next(node.id, 0);
             if (!first)
-                continue;   // unused hook
+            {
+                continue;  // unused hook
+            }
             m_Tracks.emplace_back();
             // Allocated once, here: no state change after this ever resizes it.
             m_Tracks.back().stateBuf.assign(m_MaxActionState, 0);
             EnterState(m_Tracks.back(), &g.Root(), first);
             if (m_Failed)
+            {
                 return;
+            }
         }
     }
 
     if (m_Tracks.empty())
+    {
         FailFsm("graph has nothing to run: no lifecycle output (Awake/Start/Update) is wired");
+    }
 }
 
 void FsmComponent::EnterState(Track& track, const DekiNodeGraph::NodeGraphData::Graph* graph,
@@ -536,7 +588,9 @@ void FsmComponent::EnterState(Track& track, const DekiNodeGraph::NodeGraphData::
     const DekiNodeGraph::NodeGraphData::Graph* stateGraph = graph;
     const DekiNodeGraph::NodeGraphData::NodeInstance* state = ResolveFlowTarget(stateGraph, target, track);
     if (!state)
-        return;   // machine already latched
+    {
+        return;  // machine already latched
+    }
 
     // Actions used to be an inspector stack on the state (serialized as
     // "children"); they are an inner graph now. An asset from before that
@@ -571,20 +625,23 @@ void FsmComponent::EnterState(Track& track, const DekiNodeGraph::NodeGraphData::
     if (track.actions)
     {
         if (const DekiNodeGraph::NodeGraphData::NodeInstance* entry = track.actions->FindFirstOfType(kActionEntryId))
+        {
             first = track.actions->Next(entry->id, 0);
+        }
     }
 
     FsmContext ctx{ GetOwner(), this, 0.0f };
     BeginAction(track, first, ctx);
 }
 
-void FsmComponent::BeginAction(Track& track, const DekiNodeGraph::NodeGraphData::NodeInstance* node,
-                               FsmContext& ctx)
+void FsmComponent::BeginAction(Track& track, const DekiNodeGraph::NodeGraphData::NodeInstance* node, FsmContext& ctx)
 {
     track.current = node;
     track.currentOps = nullptr;
     if (!node)
-        return;   // flow ran off its end -> FINISHED on the next pass
+    {
+        return;  // flow ran off its end -> FINISHED on the next pass
+    }
 
     const FsmActionOps* ops = FsmActionRegistry::Instance().Find(node->typeId);
     if (!ops)
@@ -614,15 +671,21 @@ void FsmComponent::BeginAction(Track& track, const DekiNodeGraph::NodeGraphData:
     // all, and a graph made only of those has an empty slot.
     uint8_t* const state = track.stateBuf.empty() ? nullptr : track.stateBuf.data();
     if (state && ops->stateSize > 0)
+    {
         std::memset(state, 0, ops->stateSize);
+    }
     if (ops->onEnter)
+    {
         ops->onEnter(node->instance, state, ctx);
+    }
 }
 
 void FsmComponent::ExitState(Track& track)
 {
     if (!track.active)
+    {
         return;
+    }
 
     // Only the running action needs exiting: the ones before it were exited as
     // they finished, the ones after it were never entered.
@@ -667,11 +730,15 @@ void FsmComponent::ProcessEvents()
         for (size_t t = 0; t < m_Tracks.size() && !m_Failed; ++t)
         {
             if (ev.track >= 0 && static_cast<int>(t) != ev.track)
+            {
                 continue;
+            }
 
             Track& track = m_Tracks[t];
             if (!track.active)
+            {
                 continue;
+            }
 
             const auto* state = static_cast<const FsmStateNode*>(track.active->instance);
             int pin = -1;
@@ -688,8 +755,10 @@ void FsmComponent::ProcessEvents()
                 // Not listened for here. For a track's own FINISHED that just
                 // means a terminal state (the track parks — by design).
                 if (ev.track >= 0)
-                    DEKI_LOG_DEBUG("FsmComponent: event '%s' ignored by state '%s'",
-                                   ev.name.c_str(), state->name.c_str());
+                {
+                    DEKI_LOG_DEBUG("FsmComponent: event '%s' ignored by state '%s'", ev.name.c_str(),
+                                   state->name.c_str());
+                }
                 continue;
             }
 
@@ -699,8 +768,8 @@ void FsmComponent::ProcessEvents()
             if (!next)
             {
                 char buf[192];
-                std::snprintf(buf, sizeof(buf), "state '%s' transition '%s' is not wired",
-                              state->name.c_str(), ev.name.c_str());
+                std::snprintf(buf, sizeof(buf), "state '%s' transition '%s' is not wired", state->name.c_str(),
+                              ev.name.c_str());
                 FailFsm(buf);
                 return;
             }
@@ -719,12 +788,10 @@ void FsmComponent::ProcessEvents()
             // From the UNDRAINED part only: the entries before m_EventHead are
             // already consumed, and erasing one would slide the pending ones
             // down under the index this loop is reading with.
-            m_EventQueue.erase(
-                std::remove_if(m_EventQueue.begin() + static_cast<std::ptrdiff_t>(m_EventHead),
-                               m_EventQueue.end(),
-                               [t](const QueuedEvent& q)
-                               { return q.track == static_cast<int>(t); }),
-                m_EventQueue.end());
+            m_EventQueue.erase(std::remove_if(m_EventQueue.begin() + static_cast<std::ptrdiff_t>(m_EventHead),
+                                              m_EventQueue.end(),
+                                              [t](const QueuedEvent& q) { return q.track == static_cast<int>(t); }),
+                               m_EventQueue.end());
         }
     }
 
@@ -749,33 +816,43 @@ void FsmComponent::RunActions()
     {
         Track& track = m_Tracks[t];
         if (!track.active)
+        {
             continue;
+        }
 
         int steps = 0;
         while (track.current)
         {
             const FsmActionOps* ops = track.currentOps;
             const DekiNodeGraph::NodeGraphData::NodeInstance* node = track.current;
-            void* const state = track.stateBuf.empty()
-                                    ? nullptr
-                                    : static_cast<void*>(track.stateBuf.data());
+            void* const state = track.stateBuf.empty() ? nullptr : static_cast<void*>(track.stateBuf.data());
 
             // No onUpdate = an enter-only action: done on pin 0 the moment it ran.
             const int pin = ops->onUpdate ? ops->onUpdate(node->instance, state, ctx) : 0;
             if (m_Failed)
+            {
                 return;
+            }
             if (pin == kFsmActionRunning)
-                break;   // still running: nothing downstream runs
+            {
+                break;  // still running: nothing downstream runs
+            }
 
             if (ops->onExit)
+            {
                 ops->onExit(node->instance, state, ctx);
+            }
             if (m_Failed)
+            {
                 return;
+            }
 
             // An unwired pin ends the flow, which is what raises FINISHED.
             BeginAction(track, track.actions->Next(node->id, pin), ctx);
             if (m_Failed)
+            {
                 return;
+            }
 
             if (++steps > kMaxActionStepsPerFrame)
             {

@@ -30,4 +30,4 @@
 #include "FsmActionRegistry.h"
 #include "FsmComponent.h"
 
-#endif // DEKI_PACKAGE_FSM
+#endif  // DEKI_PACKAGE_FSM

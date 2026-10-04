@@ -28,9 +28,9 @@ namespace DekiEditor
 class FsmGraphAssetEditor : public AssetTypeEditor
 {
 public:
-    const char* GetTypeName() const override    { return "FsmGraph"; }
+    const char* GetTypeName() const override { return "FsmGraph"; }
     const char* GetDisplayName() const override { return "State Machine"; }
-    const char* GetExtension() const override   { return ".asset"; }
+    const char* GetExtension() const override { return ".asset"; }
 
     // Every graph carries its three permanent lifecycle entries (the editor
     // re-seeds missing ones on open); Start comes wired into one empty state
@@ -67,11 +67,9 @@ public:
 
 REGISTER_EDITOR(FsmGraphAssetEditor)
 
-} // namespace DekiEditor
+}  // namespace DekiEditor
 
-REGISTER_NODE_GRAPH_DOMAIN(g_FsmDomain,
-                           "FsmGraph", "State Machine",
-                           "Fsm", "FsmStart");
+REGISTER_NODE_GRAPH_DOMAIN(g_FsmDomain, "FsmGraph", "State Machine", "Fsm", "FsmStart");
 
 // Re-registration hook for plugin-only hot reload: the editor wipes the domain
 // registry while this DLL stays loaded, so the static registrar above never
@@ -86,4 +84,4 @@ extern "C" void DekiFsm_RegisterEditorGraphDomain(void)
     DekiNodeGraph::NodeGraphDomainRegistry::Instance().Register(&g_FsmDomain);
 }
 
-#endif // DEKI_EDITOR
+#endif  // DEKI_EDITOR
