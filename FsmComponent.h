@@ -57,7 +57,6 @@ namespace DekiFsm
 /// frame, or a graph with nothing to run.
 DEKI_CATEGORY("Logic")
 DEKI_DESCRIPTION("Runs a state machine graph asset on this object.")
-DEKI_FORMER_NAME("FsmComponent")
 class FsmComponent : public Deki::Component
 {
 public:

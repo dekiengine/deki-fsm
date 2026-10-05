@@ -15,6 +15,10 @@ alongside one that has them.
 - The functions the editor finds by name are PascalCase: DekiFsmRegisterComponents, DekiFsmGetAutoComponentCount, DekiFsmEnsureRegistered and the rest. Built against engine ABI 21; a build of this package from before does not load and is rebuilt.
 - Renamed: `AssetTypeName` is `kAssetTypeName`; a node's `StaticNodeDisplayName` and `StaticNodeDescription` are `kStaticNodeDisplayName` and `kStaticNodeDescription`.
 
+### Removed
+- The former names from before 0.16.0 (bare class names, and deki-gpio's
+  `DekiEsp32::ESP32PinSetup`). A scene that old is upgraded with 0.17 first.
+
 ## 0.17.0
 
 ### Changed
