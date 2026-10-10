@@ -48,6 +48,11 @@ constexpr int kMaxTransitionsPerFrame = 16;
 // actions would otherwise never end the frame.
 constexpr int kMaxActionStepsPerFrame = 256;
 
+// The most one frame advances a machine. A longer frame (a scene loading,
+// the board sending a screenshot, waking from sleep) counts as this much, so
+// a ring of short timed actions cannot run past kMaxActionStepsPerFrame.
+constexpr float kMaxFrameSeconds = 1.0f;
+
 // Groups and exits are resolved by walking, and a group's In can lead into
 // another group, and so on; this bounds that walk.
 constexpr int kMaxFlowHops = 32;
@@ -801,12 +806,11 @@ void FsmComponent::ProcessEvents()
 
 void FsmComponent::RunActions()
 {
-    const float dt = Deki::Time::GetDeltaTimeF() * 0.001f;
-    FsmContext ctx{ GetOwner(), this, dt };
+    const float frameSeconds = std::min(Deki::Time::GetDeltaTimeF() * 0.001f, kMaxFrameSeconds);
 
     // Every track runs the one action its active state is on, and follows the
     // wires for as long as actions keep finishing this frame. Each track has
-    // its own FINISHED.
+    // its own FINISHED, and its own frame time to spend (FsmContext::dt).
     for (size_t t = 0; t < m_Tracks.size(); ++t)
     {
         Track& track = m_Tracks[t];
@@ -814,6 +818,7 @@ void FsmComponent::RunActions()
         {
             continue;
         }
+        FsmContext ctx{ GetOwner(), this, frameSeconds };
 
         int steps = 0;
         while (track.current)

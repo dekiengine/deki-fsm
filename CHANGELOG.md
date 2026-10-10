@@ -8,6 +8,17 @@ breaking change bumps the minor across the editor, the engine and every
 package together, so a package with no changes of its own is still released
 alongside one that has them.
 
+## Unreleased
+
+### Fixed
+- **Timed actions keep time when frames are long or uneven.** An action
+  that finished part way through a frame let the next one in the flow start
+  with the whole frame again, so a flow gained time at each step, and a long
+  frame (a scene loading, a screenshot sent from the board) moved each machine
+  on by a different amount: the logic demo's orbs, started a phase apart,
+  bunched up. A finished Wait, Tween Property or delayed Send Event now passes
+  on only the time it did not use, and one frame counts as at most a second.
+
 ## 0.18.0
 
 ### Changed

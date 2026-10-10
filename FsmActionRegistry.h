@@ -22,7 +22,12 @@ struct FsmContext
 {
     Deki::Object* owner = nullptr;  // the object the FsmComponent is on
     FsmComponent* fsm = nullptr;
-    float dt = 0.0f;  // seconds this frame
+    // Seconds of this frame not yet spent. A timed action that finishes sets
+    // it to what it did not use, so the next action in the flow starts with
+    // that remainder rather than the whole frame again: a loop of tweens then
+    // keeps time however long the frames are, and machines started apart stay
+    // apart.
+    float dt = 0.0f;
 
     /// Queues an event on the FSM. It is checked against the active state's
     /// transitions after the action pass.

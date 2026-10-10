@@ -198,7 +198,12 @@ int WaitUpdate(const void* data, void* state, FsmContext& ctx)
     (void)data;
     auto* s = static_cast<WaitState*>(state);
     s->elapsed += ctx.dt;
-    return s->elapsed >= s->seconds ? kDone : kFsmActionRunning;
+    if (s->elapsed < s->seconds)
+    {
+        return kFsmActionRunning;
+    }
+    ctx.dt = s->elapsed - s->seconds;  // the rest of the frame goes on down the flow
+    return kDone;
 }
 
 const FsmActionOps kWaitOps = { sizeof(WaitState), &WaitEnter, &WaitUpdate, nullptr };
@@ -229,6 +234,7 @@ int SendEventUpdate(const void* data, void* state, FsmContext& ctx)
     s->elapsed += ctx.dt;
     if (s->elapsed >= d->delaySec)
     {
+        ctx.dt = s->elapsed - d->delaySec;
         ctx.SendEvent(d->eventName);
         s->sent = 1;
         return kDone;
@@ -421,7 +427,15 @@ int TweenUpdate(const void* data, void* state, FsmContext& ctx)
     const float e = DekiTween::Ease::GetFunction(d->ease)(u);
 
     WriteBoundNumbers(s->binding, s->start + (end - s->start) * e, s->start2 + (end2 - s->start2) * e);
-    return u >= 1.0f ? kDone : kFsmActionRunning;
+    if (u < 1.0f)
+    {
+        return kFsmActionRunning;
+    }
+    if (s->duration > 0.0f)
+    {
+        ctx.dt = s->elapsed - s->duration;
+    }
+    return kDone;
 }
 
 const FsmActionOps kTweenOps = { sizeof(TweenState), &TweenEnter, &TweenUpdate, nullptr };
