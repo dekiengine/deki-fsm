@@ -12,6 +12,7 @@
 
 #include <deki-editor/EditorExtension.h>
 #include <deki-editor/EditorRegistry.h>
+#include <deki-editor/Localization.h>
 
 #include "deki-nodegraph/DekiNode.h"
 
@@ -25,7 +26,7 @@ class FsmGraphAssetEditor : public AssetTypeEditor
 {
 public:
     const char* GetTypeName() const override { return "FsmGraph"; }
-    const char* GetDisplayName() const override { return "State Machine"; }
+    const char* GetDisplayName() const override { return TrMark("State Machine"); }
     const char* GetExtension() const override { return ".asset"; }
 
     // Every graph has its three permanent lifecycle entries (the editor adds
@@ -64,7 +65,7 @@ REGISTER_EDITOR(FsmGraphAssetEditor)
 
 }  // namespace DekiEditor
 
-REGISTER_NODE_GRAPH_DOMAIN(kFsmDomain, "FsmGraph", "State Machine", "Fsm", "FsmStart");
+REGISTER_NODE_GRAPH_DOMAIN(kFsmDomain, "FsmGraph", DekiEditor::TrMark("State Machine"), "Fsm", "FsmStart");
 
 // Registers the domain again after a plugin-only hot reload: the editor clears
 // the domain registry while this DLL stays loaded, so the static registrar
