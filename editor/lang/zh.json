@@ -111,5 +111,7 @@
     "Bool": "布尔",
     "A true or false variable.": "真或假的变量。",
     "Text": "文本",
-    "A text variable.": "文本变量。"
+    "A text variable.": "文本变量。",
+    "Logic": "逻辑",
+    "Runs a state machine graph asset on this object.": "在此对象上运行状态机图资源。"
 }

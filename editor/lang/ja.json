@@ -111,5 +111,7 @@
     "Bool": "真偽値",
     "A true or false variable.": "真か偽の変数です。",
     "Text": "テキスト",
-    "A text variable.": "テキストの変数です。"
+    "A text variable.": "テキストの変数です。",
+    "Logic": "ロジック",
+    "Runs a state machine graph asset on this object.": "ステートマシングラフのアセットをこのオブジェクトで実行します。"
 }

@@ -111,5 +111,7 @@
     "Bool": "불리언",
     "A true or false variable.": "참 또는 거짓 변수입니다.",
     "Text": "텍스트",
-    "A text variable.": "텍스트 변수입니다."
+    "A text variable.": "텍스트 변수입니다.",
+    "Logic": "로직",
+    "Runs a state machine graph asset on this object.": "이 오브젝트에서 상태 머신 그래프 에셋을 실행합니다."
 }
