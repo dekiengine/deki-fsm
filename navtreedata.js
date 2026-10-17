@@ -25,16 +25,17 @@
 var NAVTREE =
 [
   [ "deki-fsm", "index.html", [
-    [ "Components", "index.html#autotoc_md0", null ],
-    [ "Feature flags", "index.html#autotoc_md1", null ],
-    [ "Component reference", "index.html#autotoc_md2", [
+    [ "Components", "index.html#components", null ],
+    [ "Feature flags", "index.html#feature-flags", null ],
+    [ "Component reference", "index.html#component-reference", [
       [ "FsmComponent", "index.html#c-fsmcomponent", null ]
     ] ],
-    [ "Changelog", "index.html#autotoc_md3", [
-      [ "Unreleased", "index.html#autotoc_md4", null ],
-      [ "Added", "index.html#autotoc_md5", null ],
-      [ "0.16.0", "index.html#autotoc_md6", null ],
-      [ "Changed", "index.html#autotoc_md7", null ]
+    [ "Changelog", "index.html#changelog", [
+      [ "0.19.0", "index.html#autotoc_md0", null ],
+      [ "Changed", "index.html#autotoc_md1", null ],
+      [ "Added", "index.html#autotoc_md2", null ],
+      [ "0.18.2", "index.html#autotoc_md3", null ],
+      [ "Fixed", "index.html#autotoc_md4", null ]
     ] ]
   ] ]
 ];
